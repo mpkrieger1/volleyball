@@ -15,6 +15,13 @@ shared/dist/
 tests/playwright-report/
 tests/test-results/
 
+# Ad-hoc tsc emissions inside src/ trees
+**/src/**/*.js
+**/src/**/*.js.map
+**/src/**/*.d.ts
+**/src/**/*.d.ts.map
+# Allow real source-tree .ts and .tsx (don't gitignore those)
+
 # Electron builder output
 release/
 
@@ -39,6 +46,12 @@ Thumbs.db
 # Code-signing certificates (Sprint 24 Task 24.2)
 *.pfx
 *.p12
+
+# Local agent / IDE config
+.claude/
+.cursor/
+.idea/
+.vscode/
 
 # FCCD reference unpack — NEVER commit (CLAUDE.md §Critical Rule 1)
 resources/

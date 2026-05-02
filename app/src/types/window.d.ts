@@ -207,6 +207,12 @@ declare global {
         enabled: boolean,
       ): Promise<{ ok: true } | { ok: false; error: { code: string; message: string } }>;
     };
+    update: {
+      // Sprint 24: manual "Check for updates" button in Settings.
+      checkNow():
+        | Promise<{ ok: true; status: 'checked' | 'dev-only' }>
+        | Promise<{ ok: false; status: 'error'; message: string }>;
+    };
   }
 
   interface Window {

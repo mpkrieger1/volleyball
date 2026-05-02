@@ -16,13 +16,32 @@ files:
 extraMetadata:
   main: main/dist/index.js
 asar: true
+# Sprint 24: don't fail unsigned builds. CSC_LINK + CSC_KEY_PASSWORD env
+# vars enable signing when present; absence yields a clean unsigned build.
+forceCodeSigning: false
 win:
   target:
     - target: nsis
       arch:
         - x64
+  signtoolOptions:
+    publisherName: Krieger Analytics
+    signingHashAlgorithms:
+      - sha256
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
   shortcutName: VCD
+  menuCategory: Krieger Analytics
+  # Sprint 24 PRD exit test 3: uninstaller leaves no residual data.
+  deleteAppDataOnUninstall: true
+  runAfterFinish: false
+# Sprint 24: GitHub Releases auto-update channel. Replace `owner` with the
+# org/user once the public release flow is set up; until then,
+# electron-updater throws and the app's wrapper handles it gracefully.
+publish:
+  - provider: github
+    owner: mpkrieger1
+    repo: volleyball
+    releaseType: release

@@ -10,6 +10,7 @@ import { PreseasonView } from './screens/PreseasonView';
 import { StaffView } from './screens/StaffView';
 import { AwardsView } from './screens/AwardsView';
 import { AnalyticsView } from './screens/AnalyticsView';
+import { SettingsScreen } from './screens/SettingsScreen';
 import { useEffect } from 'react';
 import { useSaveSlotsStore } from './store/useSaveSlotsStore';
 import { useNavStore, type ActiveScreen } from './store/useNavStore';
@@ -28,6 +29,7 @@ const TABS: Array<{ id: ActiveScreen; label: string }> = [
   { id: 'staff', label: 'Staff' },
   { id: 'awards', label: 'Awards' },
   { id: 'analytics', label: 'Analytics' },
+  { id: 'settings', label: 'Settings' },
 ];
 
 export function App() {
@@ -50,14 +52,14 @@ export function App() {
     document.body.classList.add(`fs-${fontSize}`);
   }, [fontSize]);
 
-  // Sprint 23: sync renderer's persisted crash-reporting opt-in to the
-  // main-process recorder on startup and whenever the user toggles it.
-  const crashReportingEnabled = useSettingsStore((s) => s.crashReportingEnabled);
+  // Sprint 23/24: sync renderer's persisted Diagnostics opt-in to the
+  // main-process crash recorder on startup and whenever the user toggles it.
+  const diagnosticsEnabled = useSettingsStore((s) => s.diagnosticsEnabled);
   useEffect(() => {
     if (window.vcd?.crash?.setEnabled) {
-      void window.vcd.crash.setEnabled(crashReportingEnabled);
+      void window.vcd.crash.setEnabled(diagnosticsEnabled);
     }
-  }, [crashReportingEnabled]);
+  }, [diagnosticsEnabled]);
 
   if (!openedSlotId) return <main><SaveSlots /></main>;
 
@@ -88,6 +90,7 @@ export function App() {
       {screen === 'staff' && <StaffView />}
       {screen === 'awards' && <AwardsView />}
       {screen === 'analytics' && <AnalyticsView />}
+      {screen === 'settings' && <SettingsScreen />}
     </main>
   );
 }

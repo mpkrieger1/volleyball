@@ -609,3 +609,100 @@ button:hover {
   border-radius: 4px;
   font-size: var(--fs-meta);
 }
+
+/* Sprint 24: Settings screen */
+.settings-screen {
+  padding: 16px 24px;
+  max-width: 720px;
+}
+.settings-screen h1 {
+  font-size: var(--fs-h1);
+  margin: 0 0 16px;
+}
+.settings-section {
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin: 12px 0;
+}
+.settings-section h2 {
+  font-size: var(--fs-h2);
+  margin: 0 0 8px;
+}
+.settings-section .settings-desc {
+  font-size: var(--fs-meta);
+  color: #b0b0b0;
+  margin: 0 0 8px;
+}
+.settings-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 0;
+}
+.settings-radio {
+  display: flex;
+  gap: 4px;
+}
+.settings-radio__btn,
+.settings-radio__btn--active {
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid #3a3a3a;
+  color: inherit;
+  cursor: pointer;
+}
+.settings-radio__btn--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* Sprint 24: First-run modal */
+.first-run-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.first-run-modal {
+  background: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 6px;
+  width: 480px;
+  max-width: 90%;
+  padding: 24px;
+}
+.first-run-modal h2 {
+  margin: 0 0 12px;
+  font-size: var(--fs-h2);
+}
+.first-run-modal p {
+  margin: 8px 0;
+  font-size: var(--fs-base);
+}
+.first-run-modal__nav {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+.first-run-modal__dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+}
+.first-run-modal__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3a3a3a;
+}
+.first-run-modal__dot--active {
+  background: var(--accent);
+}

@@ -2,7 +2,7 @@ import { app, BrowserWindow } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { perf, crash } from '@vcd/shared';
-import { configureCrashRecorder, recordCrash } from './crash/recorder';
+import { configureCrashRecorder, isCrashRecorderEnabled, recordCrash } from './crash/recorder';
 import { createWindowOptions, rendererEntry } from './windowConfig';
 import { registerSaveSlotHandlers } from './ipc/saveSlotHandlers';
 import { registerMatchHandlers } from './ipc/matchHandlers';
@@ -19,6 +19,8 @@ import { registerCoachingHandlers } from './ipc/coachingHandlers';
 import { registerAwardsHandlers } from './ipc/awardsHandlers';
 import { registerScoutHandlers } from './ipc/scoutHandlers';
 import { registerCrashHandlers } from './ipc/crashHandlers';
+import { registerUpdateHandlers } from './ipc/updateHandlers';
+import { autoCheckIfEnabled } from './update/updater';
 
 const USER_DATA = process.env.VCD_USER_DATA ?? app.getPath('userData');
 const LOG_PATH = path.join(USER_DATA, 'vcd-main.log');
@@ -83,9 +85,19 @@ app.whenReady().then(() => {
   registerAwardsHandlers(deps);
   registerScoutHandlers(deps);
   registerCrashHandlers();
+  registerUpdateHandlers();
   logLine('handlers registered');
   createMainWindow();
   logLine('main window created');
+  // Sprint 24: auto-check for updates ~5s after launch IFF diagnostics
+  // is enabled. The renderer pushes its persisted preference via
+  // `crash:setEnabled` IPC at startup; until that arrives, the recorder
+  // is OFF, so the auto-check is a no-op for first-time users.
+  setTimeout(() => {
+    void autoCheckIfEnabled({ diagnosticsEnabled: isCrashRecorderEnabled() }).catch((err) => {
+      logLine(`auto-update check failed: ${String(err)}`);
+    });
+  }, 5_000);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
   });

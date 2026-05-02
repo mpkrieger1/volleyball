@@ -50,7 +50,16 @@ jobs:
           retention-days: 7
 
       - name: Package Windows installer
+        env:
+          # Sprint 24: signing is opt-in. Both secrets must be set in
+          # repo Settings for the build to sign — see
+          # docs/release/code-signing.md. Empty values yield unsigned.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: npm run build:installer
+
+      - name: Verify installer size budget
+        run: npm run test:installer-size
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4

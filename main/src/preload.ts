@@ -190,6 +190,9 @@ const api = Object.freeze({
     }) => ipcRenderer.invoke('crash:report', payload),
     setEnabled: (enabled: boolean) => ipcRenderer.invoke('crash:setEnabled', { enabled }),
   },
+  update: {
+    checkNow: () => ipcRenderer.invoke('update:checkNow'),
+  },
 });
 
 export type VcdApi = typeof api;

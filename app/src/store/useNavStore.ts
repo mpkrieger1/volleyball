@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type ActiveScreen = 'match-hub' | 'schedule' | 'poll' | 'bracket' | 'recruiting' | 'portal' | 'nil' | 'offseason' | 'staff' | 'awards' | 'analytics';
+export type ActiveScreen = 'match-hub' | 'schedule' | 'poll' | 'bracket' | 'recruiting' | 'portal' | 'nil' | 'offseason' | 'staff' | 'awards' | 'analytics' | 'settings';
 
 type NavState = {
   screen: ActiveScreen;
