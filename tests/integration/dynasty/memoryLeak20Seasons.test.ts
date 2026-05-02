@@ -30,8 +30,10 @@ const HEAP_SLOPE_BUDGET_MB_PER_SEASON = 5;
 
 /**
  * Sprint 24: real recruiting cycle between seasons. closeRecruitingCycle
- * promotes COMMITTED → Player. See save10Seasons.test.ts jsdoc for
- * the recruiting-AI commit-rate gap that necessitates the topup safety net.
+ * promotes COMMITTED → Player. See save10Seasons.test.ts jsdoc for the
+ * recruiting-AI commit-rate gap that necessitates the topup safety net,
+ * and for the Sprint 25 Task 25.1 board-scoring fix that should reduce
+ * (and eventually eliminate) the need for the helper.
  */
 async function runRecruitingForYear(dbPath: string, seasonYear: number, seed: string): Promise<void> {
   await openRecruitingCycle({ dbPath, seasonYear, classSize: 3000, seed, boardSizePerTeam: 20 });

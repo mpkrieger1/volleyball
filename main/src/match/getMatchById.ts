@@ -4,6 +4,7 @@
 
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { sim, matchIpc } from '@vcd/shared';
+import * as pbpCodec from '@vcd/shared/sim/pbpCodec';
 import { pickStartersForTeam } from './pickStarters';
 
 type ClientLike = PrismaClient | Prisma.TransactionClient;
@@ -47,9 +48,9 @@ export async function getMatchById(
   // callers should use a different IPC.
   let pbp;
   try {
-    pbp = sim.decodePbp(row.pbpJson, row.pbpEncoding);
+    pbp = pbpCodec.decodePbp(row.pbpJson, row.pbpEncoding);
   } catch (err) {
-    if (err instanceof sim.PbpUnavailableError) {
+    if (err instanceof pbpCodec.PbpUnavailableError) {
       return { ok: false, code: 'NOT_FOUND', message: `match ${matchId} PBP unavailable (pruned)` };
     }
     throw err;

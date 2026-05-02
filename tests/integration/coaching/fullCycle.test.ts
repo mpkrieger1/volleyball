@@ -110,8 +110,14 @@ describe('PRD Sprint 17 invariants', () => {
     // 0 for teams that landed nothing. Captures both volume (top-AHC land
     // more recruits) and quality (top-AHC land higher-rated recruits).
     // All 180 highTeamIds vs 180 lowTeamIds → large samples, robust test.
+    // Sprint 25 (Task 25.3): include SIGNED — Sprint 24's closeRecruitingCycle
+    // promotes COMMITTED → SIGNED on signing day. The pre-Sprint-25 query
+    // filtered to COMMITTED only, missing every promoted recruit and
+    // collapsing class-stars-by-team to near zero on most teams. That
+    // appears as the Sprint 17 "Welch p > 0.05" recurring flake — it
+    // wasn't statistical noise, it was a stale post-state contract.
     const committed = await client.recruit.findMany({
-      where: { commitState: 'COMMITTED' },
+      where: { commitState: { in: ['COMMITTED', 'SIGNED'] } },
       select: { commitTeamId: true, stars: true },
     });
     const classStarsByTeam = new Map<string, number>();
@@ -138,7 +144,15 @@ describe('PRD Sprint 17 invariants', () => {
     // class-star totals gives p ≈ 0.04 with magnitude ratio > 4× (high
     // mean > 2.5, low mean < 0.75). Pool 3 independent cycles to reach the
     // PRD bar while keeping runtime reasonable.
-    expect(meanHigh).toBeGreaterThan(meanLow * 3);
+    //
+    // Sprint 25 (Task 25.3): widened magnitude ratio from 3× to 2.5×.
+    // Sprint 25's Task 25.1 board-score jitter spreads recruits more
+    // evenly across teams, so low-AHC programs land more class total
+    // than they used to (typical ratio compresses from ~4× to ~2.7×).
+    // The Welch p still lands at p ≈ 0 — the SIGNAL is unambiguous;
+    // we just stop demanding a specific magnitude that depends on
+    // which sprint's recruiting model is in play.
+    expect(meanHigh).toBeGreaterThan(meanLow * 2.5);
     expect(p).toBeLessThan(0.05);
   }, 300_000);
 

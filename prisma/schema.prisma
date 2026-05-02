@@ -372,7 +372,14 @@ model Set {
 model PlayerMatchStat {
   id              String @id @default(cuid())
   playerId        String
-  player          Player @relation(fields: [playerId], references: [id])
+  // Sprint 25 (P1.2): added onDelete:Cascade. Pre-Sprint-25, deleting a Player
+  // failed with a FK violation unless the caller manually
+  // `tx.playerMatchStat.deleteMany` first. `runOffseason` had defensive
+  // logic for this; future Player-deletion paths (transfer portal, manual
+  // roster prune) would have been silent footguns. Cascade makes deletion
+  // safe by default; the existing manual deleteMany calls are now
+  // defensive but no longer load-bearing.
+  player          Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
   matchId         String
   match           Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
 

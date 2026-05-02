@@ -33,6 +33,21 @@ export type SaveSlotServiceDeps = SaveSlotPathEnv & {
   repoRoot: string;
 };
 
+/**
+ * Sprint 25 (P0.5): made idempotent + migration-tracked. Pre-Sprint-25
+ * `applyMigrations` re-ran every migration on every call, which was fine
+ * for fresh CREATE TABLE migrations but breaks for ALTER TABLE / table-
+ * rebuild migrations (Sprint 25's PMS cascade). Now uses Prisma's
+ * standard `_prisma_migrations` tracking table:
+ *   - On first run (table doesn't exist): create the tracking table.
+ *   - For each migration folder: skip if already recorded, otherwise
+ *     run + record.
+ * Called both at save-slot CREATE (where everything is unapplied) and
+ * at save-slot OPEN (where most is applied but the latest may not be).
+ *
+ * This is the save-file forward-compat path per CLAUDE.md §Critical
+ * rule 6 ("A save created in sprint N must open in sprint N+1").
+ */
 async function applyMigrations(repoRoot: string, dbPath: string): Promise<void> {
   const migrationsDir = path.join(repoRoot, 'prisma', 'migrations');
   const folders = readdirSync(migrationsDir, { withFileTypes: true })
@@ -42,7 +57,29 @@ async function applyMigrations(repoRoot: string, dbPath: string): Promise<void> 
 
   const client = new PrismaClient({ datasources: { db: { url: `file:${dbPath}` } } });
   try {
+    // Ensure the tracking table exists. Schema mirrors Prisma's stock
+    // `_prisma_migrations` so future CLI-driven migrations stay
+    // compatible. We only use `migration_name` here.
+    await client.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "_prisma_migrations" (
+        "id"                    TEXT PRIMARY KEY NOT NULL,
+        "checksum"              TEXT NOT NULL,
+        "finished_at"           DATETIME,
+        "migration_name"        TEXT NOT NULL,
+        "logs"                  TEXT,
+        "rolled_back_at"        DATETIME,
+        "started_at"            DATETIME NOT NULL DEFAULT current_timestamp,
+        "applied_steps_count"   INTEGER NOT NULL DEFAULT 0
+      )
+    `);
+
+    const appliedRows = await client.$queryRawUnsafe<Array<{ migration_name: string }>>(
+      `SELECT migration_name FROM "_prisma_migrations"`,
+    );
+    const applied = new Set(appliedRows.map((r) => r.migration_name));
+
     for (const folder of folders) {
+      if (applied.has(folder)) continue;
       const sqlPath = path.join(migrationsDir, folder, 'migration.sql');
       if (!existsSync(sqlPath)) continue;
       const sql = await readFile(sqlPath, 'utf8');
@@ -59,6 +96,16 @@ async function applyMigrations(repoRoot: string, dbPath: string): Promise<void> 
       for (const stmt of statements) {
         await client.$executeRawUnsafe(stmt);
       }
+      // Record the migration as applied. Use folder name as both id and
+      // migration_name; checksum is a placeholder (Prisma's CLI uses a
+      // sha256 of the SQL file, but we don't validate checksums on open
+      // so a stable placeholder is sufficient).
+      await client.$executeRawUnsafe(
+        `INSERT INTO "_prisma_migrations" (id, checksum, migration_name, finished_at, applied_steps_count) VALUES (?, ?, ?, current_timestamp, 1)`,
+        folder,
+        'manual',
+        folder,
+      );
     }
   } finally {
     await client.$disconnect();
@@ -224,17 +271,28 @@ export async function openSaveSlot(
     try {
       const row = await client.saveSlot.findFirst({ where: { id } });
       if (row) {
-        const updated = await client.saveSlot.update({
-          where: { id: row.id },
-          data: { lastOpenedAt: new Date() },
-        });
-        return {
-          id: updated.id,
-          name: updated.name,
-          createdAt: updated.createdAt.toISOString(),
-          lastOpenedAt: updated.lastOpenedAt.toISOString(),
-          dynastyYear: updated.dynastyYear,
-        };
+        // Sprint 25 (P0.5): apply any new migrations on open. Forward-compat
+        // for saves created with older versions when the user upgrades.
+        // `applyMigrations` is idempotent — it skips any already in
+        // `_prisma_migrations`. CLAUDE.md §6 mandates this path.
+        await client.$disconnect();
+        await applyMigrations(deps.repoRoot, dbPath);
+        const reopened = new PrismaClient({ datasources: { db: { url: `file:${dbPath}` } } });
+        try {
+          const updated = await reopened.saveSlot.update({
+            where: { id: row.id },
+            data: { lastOpenedAt: new Date() },
+          });
+          return {
+            id: updated.id,
+            name: updated.name,
+            createdAt: updated.createdAt.toISOString(),
+            lastOpenedAt: updated.lastOpenedAt.toISOString(),
+            dynastyYear: updated.dynastyYear,
+          };
+        } finally {
+          await reopened.$disconnect();
+        }
       }
     } finally {
       await client.$disconnect();

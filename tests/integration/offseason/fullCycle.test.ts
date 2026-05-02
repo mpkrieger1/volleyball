@@ -119,21 +119,27 @@ describe('PRD Sprint 16 invariants', () => {
       const teams = await c2.team.findMany({ select: { id: true } });
       // Sample ALL teams for maximum statistical power. 360 teams × ~6
       // positions with ≥2 players each ≈ 2000 pairs → ≥1000 in each bucket.
-      const fakeMatches = await Promise.all(
-        teams.map((t, i) =>
-          c2.match.create({
-            data: {
-              homeTeamId: t.id,
-              awayTeamId: teams[(i + 1) % teams.length]!.id,
-              date: new Date(),
-              week: 0,
-              isConference: false,
-              isTournament: false,
-              winnerId: t.id,
-            },
-          }),
-        ),
-      );
+      // Sprint 25 (P1.3): switched from `Promise.all` to a serial loop —
+      // 360 parallel `match.create` calls hit a Prisma SQLite "timed out
+      // after `N/A`" intermittent in Sprint 25's final gate. Serial is
+      // ~50% slower (~3s vs ~1.5s on a dev box) but stable.
+      const fakeMatches: Array<{ id: string; homeTeamId: string }> = [];
+      for (let i = 0; i < teams.length; i++) {
+        const t = teams[i]!;
+        const m = await c2.match.create({
+          data: {
+            homeTeamId: t.id,
+            awayTeamId: teams[(i + 1) % teams.length]!.id,
+            date: new Date(),
+            week: 0,
+            isConference: false,
+            isTournament: false,
+            winnerId: t.id,
+          },
+          select: { id: true, homeTeamId: true },
+        });
+        fakeMatches.push(m);
+      }
       const matchByTeam = new Map(fakeMatches.map((m) => [m.homeTeamId, m.id]));
 
       const matchStats: Array<{

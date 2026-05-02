@@ -9,6 +9,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import { sim, tournament, type seasonIpc } from '@vcd/shared';
+import * as pbpCodec from '@vcd/shared/sim/pbpCodec';
 import { lineupFromTeam } from '../match/lineupFromTeam';
 import { pickStartersForTeams, type StarterIds } from '../match/pickStarters';
 import { SimWorkerPool } from '../season/workerPool';
@@ -204,7 +205,7 @@ export async function advanceTournamentRound(
         for (const r of responses) {
           if (!r.ok) continue;
           // Sprint 23: gzip + base64 PBP at the worker→DB boundary.
-          const encoded = sim.encodePbpJsonString(r.pbpJson);
+          const encoded = pbpCodec.encodePbpJsonString(r.pbpJson);
           await tx.match.update({
             where: { id: r.matchId },
             data: {

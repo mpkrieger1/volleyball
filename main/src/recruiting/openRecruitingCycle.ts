@@ -111,24 +111,34 @@ export async function openRecruitingCycle(
     type InterestSeed = { recruitId: string; teamId: string; interest: number };
     const toInsert: InterestSeed[] = [];
 
+    // Sprint 25: rank by `computeBoardScore` (adds star bonus + per-team
+    // jitter) so different teams pick different lower-tier recruits and
+    // every recruit lands on at least some boards. Persisted interest is
+    // still `computeBaseInterest` to preserve Sprint 13 commit-resolution
+    // semantics.
     for (const team of teams) {
-      const scored: Array<{ id: string; base: number }> = persistedRecruits.map((r) => ({
-        id: r.id,
-        base: recruiting.computeBaseInterest(
-          {
+      const teamCtx = {
+        teamId: team.id,
+        prestige: team.prestige,
+        region: team.region,
+        coachRatingRecruit: coachRatingByTeam.get(team.id) ?? 50,
+        commitsAtPosition: 0,
+      };
+      const scored: Array<{ id: string; base: number; rank: number }> = persistedRecruits.map(
+        (r) => {
+          const recruitCtx = {
             stars: r.stars as 1 | 2 | 3 | 4 | 5,
             hometownRegion: r.hometownRegion ?? 'CENTRAL',
-          },
-          {
-            teamId: team.id,
-            prestige: team.prestige,
-            region: team.region,
-            coachRatingRecruit: coachRatingByTeam.get(team.id) ?? 50,
-            commitsAtPosition: 0,
-          },
-        ),
-      }));
-      scored.sort((a, b) => b.base - a.base || a.id.localeCompare(b.id));
+          };
+          const base = recruiting.computeBaseInterest(recruitCtx, teamCtx);
+          const rank = recruiting.computeBoardScore(
+            { ...recruitCtx, recruitId: r.id },
+            teamCtx,
+          );
+          return { id: r.id, base, rank };
+        },
+      );
+      scored.sort((a, b) => b.rank - a.rank || a.id.localeCompare(b.id));
       for (let i = 0; i < Math.min(boardSize, scored.length); i++) {
         const row = scored[i]!;
         if (row.base <= 0) continue;

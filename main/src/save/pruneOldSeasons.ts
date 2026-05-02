@@ -14,7 +14,7 @@
 // second time.
 
 import type { Prisma, PrismaClient } from '@prisma/client';
-import { sim } from '@vcd/shared';
+import * as pbpCodec from '@vcd/shared/sim/pbpCodec';
 
 type ClientLike = PrismaClient | Prisma.TransactionClient;
 
@@ -59,7 +59,7 @@ export async function pruneOldSeasons(
   const olderMatches = matches.filter((m) => m.date.getFullYear() < cutoffYear);
   const regularToDelete = olderMatches.filter((m) => !m.isTournament).map((m) => m.id);
   const tournamentToNull = olderMatches
-    .filter((m) => m.isTournament && m.pbpEncoding !== sim.PBP_ENCODING_PRUNED)
+    .filter((m) => m.isTournament && m.pbpEncoding !== pbpCodec.PBP_ENCODING_PRUNED)
     .map((m) => m.id);
 
   const archiveCutoffYear =
@@ -85,7 +85,7 @@ export async function pruneOldSeasons(
       const slice = tournamentToNull.slice(off, off + CHUNK);
       const r = await client.match.updateMany({
         where: { id: { in: slice } },
-        data: { pbpJson: null, pbpEncoding: sim.PBP_ENCODING_PRUNED },
+        data: { pbpJson: null, pbpEncoding: pbpCodec.PBP_ENCODING_PRUNED },
       });
       tournamentMatchesNulled += r.count;
     }

@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { sim } from '@vcd/shared';
+import * as pbpCodec from '@vcd/shared/sim/pbpCodec';
 import { simulateAndPersistMatch } from '../../../main/src/match/simulateAndPersist';
 
 const repoRoot = resolve(__dirname, '../../..');
@@ -62,8 +63,8 @@ describe('simulateAndPersistMatch', () => {
     });
     const row = await client.match.findUnique({ where: { id: result.matchId } });
     // Sprint 23: PBP is gzip-base64 by default; decodePbp handles all encodings.
-    const pbp = sim.decodePbp(row!.pbpJson!, row!.pbpEncoding);
-    expect(row!.pbpEncoding).toBe(sim.PBP_ENCODING_GZIP_BASE64);
+    const pbp = pbpCodec.decodePbp(row!.pbpJson!, row!.pbpEncoding);
+    expect(row!.pbpEncoding).toBe(pbpCodec.PBP_ENCODING_GZIP_BASE64);
     const replayed = sim.replayPbp(pbp);
     const stored = JSON.parse(row!.boxScoreJson!);
     expect(replayed).toEqual(stored);
@@ -81,7 +82,7 @@ describe('simulateAndPersistMatch', () => {
       seed: 'compress-real',
     });
     const row = await client.match.findUnique({ where: { id: result.matchId } });
-    const pbp = sim.decodePbp(row!.pbpJson!, row!.pbpEncoding);
+    const pbp = pbpCodec.decodePbp(row!.pbpJson!, row!.pbpEncoding);
     const plainJsonSize = JSON.stringify(pbp).length;
     const storedSize = row!.pbpJson!.length;
     const ratio = storedSize / plainJsonSize;

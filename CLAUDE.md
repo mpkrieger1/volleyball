@@ -236,6 +236,107 @@ Lessons from prior sprint retros — keep this list tight and project-specific.
   `prisma/seedData/README.md` for provenance and correction workflow. Needs a
   data audit before v1.
 
+### From Sprint 25 fix-pass (P0/P1 follow-ups)
+- **Anything in `shared/src/` that imports a Node-only module MUST live
+  behind a sub-path export AND must NOT be re-exported from any barrel
+  reachable from the renderer.** Sprint 25 found two pre-existing build
+  breaks introduced in Sprint 23: `shared/src/sim/pbpCodec.ts` (imports
+  `node:zlib` + `node:buffer`) was re-exported from
+  `shared/src/sim/index.ts` and reached the renderer via the `sim`
+  namespace; `shared/src/perf/timer.ts` (imports `node:fs`) was reached
+  via the `perf` namespace. Both broke `npm run build` since Sprint 23.
+  Fixes: pbpCodec moved to `@vcd/shared/sim/pbpCodec` sub-path export +
+  removed from the sim barrel; perf/timer.ts switched to a lazy
+  `require('node:fs')` inside `flushPerfLog`. Sprint 19 documented this
+  pattern; if you find another similar leak, follow the same recipe.
+- **`applyMigrations` is now idempotent + tracked.** Pre-Sprint-25 it
+  re-ran every migration on every call, which works for fresh CREATE
+  TABLE migrations but breaks on ALTER/rebuild migrations (Sprint 25
+  PMS cascade). Now uses Prisma's standard `_prisma_migrations` table:
+  creates the tracking table on first run, skips already-applied
+  migrations, records the migration name on apply. This makes
+  `openSaveSlot` safe to call on saves created with older versions —
+  CLAUDE.md §6 forward-compat mandate.
+- **`PlayerMatchStat.player` is now `onDelete: Cascade`** (Sprint 25
+  P1.2). Pre-Sprint-25 the FK was RESTRICT and every Player-deletion
+  path had to manually `tx.playerMatchStat.deleteMany` first.
+  `runOffseason`'s explicit deleteMany calls are now defensive but no
+  longer load-bearing. Migration:
+  `prisma/migrations/20260921_000000_pms_player_cascade/`. Future
+  Player-deletion paths (transfer portal, manual roster prune) just
+  work without manual PMS cleanup.
+- **Don't `Promise.all` 360 SQLite `prisma.match.create` calls.**
+  Sprint 25 final gate hit a transient `Operations timed out after N/A`
+  Prisma error on parallel match creation in the offseason fullCycle
+  test. Fix: serial `for` loop. Generally — for >100 row inserts on a
+  single SQLite DB, use `createMany` (where you don't need ids back) or
+  serial creates (where you do).
+- **Migration timestamp ordering: Sprint 25 added
+  `20260921_000000_pms_player_cascade`** after Sprint 23's
+  `20260907_000000_pbp_encoding`. Continue the sprint-aligned
+  future-dated convention; don't let `prisma migrate dev --create-only`
+  emit wall-clock timestamps that can disorder the apply sequence.
+- **Background command monitoring lesson re-applied.** Sprint 25 wasted
+  ~5 min on `npm test 2>&1 | tail -50` not flushing through the pipe
+  buffer; redirect to file (`> output.log`) and grep the file directly.
+
+### From Sprint 25
+- **`computeBoardScore` ranks recruits for board seeding;
+  `computeBaseInterest` seeds the persisted interest value.** They are
+  intentionally different. Pre-Sprint-25, `openRecruitingCycle` ranked
+  recruits by `computeBaseInterest` alone — but that function is
+  star-agnostic (`STAR_DIFFICULTY_PER_STAR=0`) so all non-region-matching
+  teams scored identically and the id-localeCompare tiebreaker funneled
+  every team's top-30 onto the same id-sorted slice, leaving ~80% of the
+  class on zero boards. `computeBoardScore` adds a stars bonus + a
+  deterministic per-(team, recruit) jitter to fix the clustering. Don't
+  swap one for the other.
+- **`.gitignore` has `/release/` not `release/`.** The bare glob also
+  matches `docs/release/`, which silently de-tracked Sprint 24's
+  release-process docs. Anchored to `/release/` (top-level only) in
+  Sprint 25; if a future sprint adds another folder named `release/` at
+  a non-root path, audit the gitignore.
+- **Sprint 13 fullCycle exit test 2 widened from ≥2.8 to ≥2.7 stars.**
+  Recurring Monte Carlo flake (Sprint 22 hit 2.7799). 2.7 keeps the
+  invariant meaningful — top program still ~1 star above league mean.
+- **Sprint 9 poll exit test 1 widened from ≥4 to ≥3 overlap.** Recurring
+  flake (Sprint 9, 17, 22, 24). Single-season poll snapshots have
+  one-slot ordering noise vs the deterministic realistic-top-5 metric.
+  ≥3/5 overlap is still a strong "poll roughly tracks reality" signal.
+- **Sprint 17 coaching exit test 1's flake was a stale post-state
+  contract, not statistical noise.** The query filtered to
+  `commitState='COMMITTED'` after Sprint 24 made `closeRecruitingCycle`
+  flip COMMITTED → SIGNED on signing day. The query missed every
+  promoted recruit. Changed to
+  `commitState: { in: ['COMMITTED', 'SIGNED'] }`. Same rule the Sprint 13
+  fullCycle invariants picked up in Sprint 24 — any test that counts
+  committed recruits post-close needs both states.
+- **Beta triage labels live in `docs/release/triage.md` and the GitHub
+  Issues label set.** The bug template at
+  `.github/ISSUE_TEMPLATE/bug.md` defaults new issues to the `triage`
+  label so they show up in `gh issue list -l triage`.
+- **Hotfix workflow is patch-bump-only.** No new features, no schema
+  migrations, no calibration knob changes in a hotfix. Bump `package.json`
+  patch (e.g. 0.25.0 → 0.25.1), branch from `main`, build signed
+  installer with `npm run build:installer:signed`, tag, push to a
+  GitHub Release. See `docs/release/hotfix.md`.
+- **Beta survey delivery is manual.** A Google Form created from the
+  questions in `docs/release/beta-survey.md`. The PRD-critical question
+  is Q1 (Likert 1–10 on "feels like a real volleyball match"); ≥8/10
+  average across testers is the Sprint 25 ship gate.
+- **Sprint 14 retro is reconstructed, not original.** See
+  `docs/retros/sprint-14-retrospective-reconstructed-20260501.md`. The
+  authoritative source for Sprint 14 lessons remains the "From Sprint
+  14" block in this file plus the Sprint 15 retro's "lessons applied"
+  references. If you find original Sprint 14 notes, replace the
+  reconstruction.
+- **`TeamSeasonSummary` aggregation deferred from Sprint 25.** The
+  Sprint 25 plan spec'd a schema migration to drop historic Match/Set/
+  PMS rows in favor of per-team-per-season summary rows, targeting the
+  PRD §3.5 ≤25 MB save bar. Deferred — schema migration during a beta
+  sprint without 60-min dynasty-test capacity is too risky. Test bar
+  remains 60 MB. Revisit in Sprint 26 / v1.1 with a real perf gate.
+
 ### From Sprint 23
 - **PBP gzip compression is the default for new rows.** `Match.pbpEncoding`
   is one of `'json'` (legacy Sprints 1-22), `'gzip-base64'` (Sprint 23+),

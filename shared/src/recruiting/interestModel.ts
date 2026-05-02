@@ -67,6 +67,52 @@ export function computeBaseInterest(
   return Math.max(0, Math.round(score));
 }
 
+/**
+ * Sprint 25: Board-seeding score used by `openRecruitingCycle` to pick
+ * which recruits fill each team's initial RecruitInterest board.
+ *
+ * Distinct from `computeBaseInterest` (which seeds the persisted interest
+ * value) for two reasons:
+ *   1. Adds a stars bonus so elite recruits rank top-of-board on every
+ *      team — `computeBaseInterest` is star-agnostic by design (Sprint 13
+ *      `STAR_DIFFICULTY_PER_STAR=0`), which causes ALL non-region-matching
+ *      teams to score recruits identically and the id-localeCompare
+ *      tiebreaker funnels every team's top-N onto the same id-sorted
+ *      recruits, leaving the rest of the class with zero board entries.
+ *   2. Adds deterministic per-(team, recruit) jitter to break ties on
+ *      lower-tier recruits so they distribute across teams instead of
+ *      clustering on id-sorted slices.
+ *
+ * The persisted RecruitInterest.interest stays at `computeBaseInterest`
+ * so Sprint 13 commit-resolution semantics (interest^5 weighting,
+ * shouldDecide thresholds) are unchanged.
+ */
+export const STAR_BOARD_BONUS = 80;
+export const BOARD_JITTER_RANGE = 40;
+
+export function computeBoardScore(
+  recruit: RecruitInterestInput & { recruitId: string },
+  team: TeamInterestInput,
+): number {
+  const base = computeBaseInterest(recruit, team);
+  const stars = base + recruit.stars * STAR_BOARD_BONUS;
+  // Deterministic jitter from a stable hash of teamId+recruitId. We use
+  // an inline xmur3-style mix to avoid an rng dependency from this pure
+  // function. The output is in [-BOARD_JITTER_RANGE/2, +BOARD_JITTER_RANGE/2].
+  const key = `${team.teamId}|${recruit.recruitId}`;
+  let h = 1779033703 ^ key.length;
+  for (let i = 0; i < key.length; i++) {
+    h = Math.imul(h ^ key.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  h = Math.imul(h ^ (h >>> 16), 2246822507);
+  h = Math.imul(h ^ (h >>> 13), 3266489909);
+  h ^= h >>> 16;
+  const u = (h >>> 0) / 4294967296;
+  const jitter = Math.round((u - 0.5) * BOARD_JITTER_RANGE);
+  return stars + jitter;
+}
+
 /** Clamp helper. */
 export function applyActionDelta(
   currentInterest: number,

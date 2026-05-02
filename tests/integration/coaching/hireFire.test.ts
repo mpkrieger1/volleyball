@@ -119,7 +119,10 @@ describe('coaching hire/fire (Sprint 17)', () => {
     expect(teamAfter!.operatingBudgetCents).toBe(budgetBefore - expectedBuyout);
   });
 
-  it('firing the HC triggers auto-backfill so every team still has an HC', async () => {
+  // Sprint 25: 360 sequential coach.count queries can push past the 5s
+  // default under disk contention (concurrent dynasty / weekPerf runs).
+  // Isolated this lands at ~3.6s; bumped to 30s for resilience.
+  it('firing the HC triggers auto-backfill so every team still has an HC', { timeout: 30_000 }, async () => {
     const team = await client.team.findFirst({ orderBy: { prestige: 'asc' } });
     expect(team).not.toBeNull();
     const hc = await client.coach.findFirst({

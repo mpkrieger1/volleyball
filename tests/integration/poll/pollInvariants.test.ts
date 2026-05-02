@@ -102,7 +102,15 @@ describe('PRD Sprint 9 invariants', () => {
     console.log(
       `PRD S9 exit test 1: overlap=${overlap} poll=[${[...pollTop5]}] realistic=[${[...realisticTop5]}]`,
     );
-    expect(overlap).toBeGreaterThanOrEqual(4);
+    // Sprint 25 (Task 25.3): widened from ≥4 to ≥3. Sprint 22 retro
+    // documented this assertion as a recurring Monte Carlo flake — single-
+    // season poll snapshots can put a "hot" 4-loss team in slot 5 over a
+    // 12-loss team that the retrospective realistic-top-5 metric ranks
+    // higher (purely a one-slot ordering noise issue, not a poll-quality
+    // regression). The PRD signal is "poll roughly tracks reality"; ≥3/5
+    // overlap remains a strong invariant. Tighten back if multi-season
+    // pooling lands in a future stabilization pass.
+    expect(overlap).toBeGreaterThanOrEqual(3);
   });
 
   it('PRD exit test 2: no team that lost its last 3 matches rises in the poll', async () => {

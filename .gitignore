@@ -22,8 +22,10 @@ tests/test-results/
 **/src/**/*.d.ts.map
 # Allow real source-tree .ts and .tsx (don't gitignore those)
 
-# Electron builder output
-release/
+# Electron builder output (top-level only — `docs/release/` holds tracked
+# release-process docs; Sprint 25 found those silently untracked because
+# the bare `release/` glob also matched `docs/release/`).
+/release/
 
 # SQLite save files
 *.db

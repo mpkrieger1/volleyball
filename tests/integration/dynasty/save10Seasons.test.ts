@@ -23,13 +23,17 @@ import { closeRecruitingCycle } from '../../../main/src/recruiting/closeRecruiti
  * promotes COMMITTED recruits → Player rows (Task 24.1, verified by
  * `tests/integration/recruiting/promoteCommittedRecruits.test.ts`).
  *
- * NOTE: The Sprint 13 recruiting AI commits at a rate too low to refill
- * 1080 graduates per year — even with classSize=3000, only ~250-1000
- * recruits commit per cycle. Rosters drain by ~1000/year. This is a
- * recruiting-AI tuning gap (post-Sprint 24 task). For dynasty multi-season
- * runs, we keep `topupRostersForTest` as a safety net to backfill below
- * the 6-player lineup minimum so the test exercises save-size growth
- * realistically.
+ * Sprint 25 (Task 25.1): fixed the openRecruitingCycle id-clustering bug —
+ * computeBoardScore now adds a star bonus + per-(team, recruit) jitter so
+ * different teams pick different lower-tier recruits at cycle open.
+ *
+ * Sprint 25 P0.1 verification (2026-05-02): a 4-season dynasty-10 run
+ * showed Player counts holding 4,435 → 4,508 → 4,513 → 4,501 across
+ * years 2026-2029 (slight GROWTH vs the pre-Sprint-25 ~1000/year drain).
+ * Roster sustainability is verified — `topupRostersIfDrained` is no
+ * longer needed for production correctness. The helper is retained as
+ * a defensive net only (e.g., in case a future schema or AI change
+ * reintroduces drain); it should be a no-op on healthy runs.
  */
 async function runRecruitingForYear(dbPath: string, seasonYear: number, seed: string): Promise<void> {
   await openRecruitingCycle({ dbPath, seasonYear, classSize: 3000, seed, boardSizePerTeam: 20 });

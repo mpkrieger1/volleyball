@@ -16,6 +16,11 @@ export * from './boxScore';
 export * from './playerMatchStatBuilder';
 export * from './timeline';
 export * from './pbp';
-export * from './pbpCodec';
+// Sprint 25: pbpCodec imports node:zlib + node:buffer; re-exporting it through
+// this barrel pulls Node-only modules into the renderer bundle (Vite breaks
+// with "Module 'node:zlib' has been externalized for browser compatibility").
+// Sprint 19 documented this pattern. Consumers (main, workers, prisma scripts,
+// tests) must import directly from `@vcd/shared/sim/pbpCodec` via the sub-path
+// export in package.json. Do NOT add `export * from './pbpCodec'` here.
 export * from './pbpFormat';
 export { TUNING, type Tuning } from './tuning';

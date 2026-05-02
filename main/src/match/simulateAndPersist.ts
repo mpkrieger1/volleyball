@@ -4,6 +4,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import { sim, perf } from '@vcd/shared';
+import * as pbpCodec from '@vcd/shared/sim/pbpCodec';
 import { simulateMatch, buildMatchTimeline, type TeamMatchState } from '@vcd/workers';
 import { lineupFromTeam } from './lineupFromTeam';
 import { pickStartersForTeam } from './pickStarters';
@@ -74,7 +75,7 @@ export async function simulateAndPersistMatch(
 
     const boxScore = sim.computeBoxScore(match);
     const pbp = sim.matchToPbp(match);
-    const { payload: pbpJson, encoding: pbpEncoding } = sim.encodePbp(pbp);
+    const { payload: pbpJson, encoding: pbpEncoding } = pbpCodec.encodePbp(pbp);
     const timeline = buildMatchTimeline(match);
 
     const winnerId = match.winner === 'home' ? home.id : away.id;

@@ -10,7 +10,12 @@
 //   import { flushPerfLog } from '@vcd/shared/perf';
 //   flushPerfLog(path.join(userData, `vcd-perf-${new Date().toISOString()}.log`));
 
-import { appendFileSync } from 'node:fs';
+// Sprint 25: `node:fs` is required by `flushPerfLog` only. Static import
+// here would make Vite resolve `node:fs` while bundling the renderer
+// (because the perf namespace is re-exported from `shared/src/index.ts`).
+// Lazy-require inside `flushPerfLog` instead — the renderer never calls
+// flushPerfLog (it's a main-process / CLI utility), so the require is
+// dead code from the renderer's perspective and Vite tree-shakes it.
 
 export type PerfEntry = {
   label: string;
@@ -64,6 +69,8 @@ export async function recordPerfAsync<T>(label: string, fn: () => Promise<T>): P
 export function flushPerfLog(path: string): number {
   if (buffer.length === 0) return 0;
   const lines = buffer.map((e) => JSON.stringify(e)).join('\n') + '\n';
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { appendFileSync } = require('node:fs') as typeof import('node:fs');
   appendFileSync(path, lines, 'utf8');
   const count = buffer.length;
   buffer = [];

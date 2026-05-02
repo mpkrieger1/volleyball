@@ -16,7 +16,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
-import { sim } from '@vcd/shared';
+import * as pbpCodec from '@vcd/shared/sim/pbpCodec';
 import { pruneOldSeasons } from '../../../main/src/save/pruneOldSeasons';
 
 const repoRoot = resolve(__dirname, '../../..');
@@ -44,7 +44,7 @@ async function makeMatch(
   homeTeamId: string,
   awayTeamId: string,
 ): Promise<string> {
-  const fakePbp = sim.encodePbp({
+  const fakePbp = pbpCodec.encodePbp({
     version: 1,
     winner: 'home',
     homeSetsWon: 3,
@@ -90,13 +90,13 @@ describe('pruneOldSeasons', () => {
     const tournRow = await client.match.findUnique({ where: { id: oldTourn } });
     expect(tournRow).not.toBeNull();
     expect(tournRow!.pbpJson).toBeNull();
-    expect(tournRow!.pbpEncoding).toBe(sim.PBP_ENCODING_PRUNED);
+    expect(tournRow!.pbpEncoding).toBe(pbpCodec.PBP_ENCODING_PRUNED);
 
     // New match: untouched.
     const newRow = await client.match.findUnique({ where: { id: newRegular } });
     expect(newRow).not.toBeNull();
     expect(newRow!.pbpJson).toBeTruthy();
-    expect(newRow!.pbpEncoding).toBe(sim.PBP_ENCODING_GZIP_BASE64);
+    expect(newRow!.pbpEncoding).toBe(pbpCodec.PBP_ENCODING_GZIP_BASE64);
 
     expect(result.matchesDeleted).toBeGreaterThanOrEqual(1);
     expect(result.tournamentMatchesNulled).toBeGreaterThanOrEqual(1);

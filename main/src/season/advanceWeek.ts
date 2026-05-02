@@ -8,6 +8,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import { sim, perf, type seasonIpc } from '@vcd/shared';
+import * as pbpCodec from '@vcd/shared/sim/pbpCodec';
 import { lineupFromTeam } from '../match/lineupFromTeam';
 import { pickStartersForTeams, type StarterIds } from '../match/pickStarters';
 import { SimWorkerPool } from './workerPool';
@@ -157,7 +158,7 @@ async function advanceWeekImpl(input: AdvanceWeekInput): Promise<AdvanceWeekResu
           if (!r.ok) continue;
           // Sprint 23: gzip + base64 PBP at the worker→DB boundary so
           // multi-season saves stay under PRD §3.5's 25 MB budget.
-          const encoded = sim.encodePbpJsonString(r.pbpJson);
+          const encoded = pbpCodec.encodePbpJsonString(r.pbpJson);
           await tx.match.update({
             where: { id: r.matchId },
             data: {

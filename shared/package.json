@@ -16,6 +16,10 @@
     "./seed": {
       "types": "./dist/seed/leagueSeed.d.ts",
       "default": "./dist/seed/leagueSeed.js"
+    },
+    "./sim/pbpCodec": {
+      "types": "./dist/sim/pbpCodec.d.ts",
+      "default": "./dist/sim/pbpCodec.js"
     }
   },
   "scripts": {

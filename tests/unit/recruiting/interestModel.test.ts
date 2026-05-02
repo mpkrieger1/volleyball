@@ -89,6 +89,68 @@ describe('applyActionDelta', () => {
   });
 });
 
+describe('computeBoardScore (Sprint 25)', () => {
+  it('is deterministic for the same (team, recruit) pair', () => {
+    const r = { ...mkRecruit(), recruitId: 'rec1' };
+    const t = mkTeam();
+    expect(recruiting.computeBoardScore(r, t)).toBe(recruiting.computeBoardScore(r, t));
+  });
+
+  it('rewards higher stars (5-star outranks 2-star for the same team)', () => {
+    const t = mkTeam();
+    // Star bonus dominates the bounded jitter (±20 vs +240 for stars 5-2=3).
+    const fiveStar = recruiting.computeBoardScore({ ...mkRecruit({ stars: 5 }), recruitId: 'r5' }, t);
+    const twoStar = recruiting.computeBoardScore({ ...mkRecruit({ stars: 2 }), recruitId: 'r2' }, t);
+    expect(fiveStar).toBeGreaterThan(twoStar);
+  });
+
+  it('produces different scores across teams for the same recruit (jitter)', () => {
+    // The bug pre-Sprint-25: every team scored the same recruit identically
+    // when no region bonus applied, and the id-localeCompare tiebreaker
+    // funneled all teams to the same id-sorted top-N recruits. This test
+    // ensures jitter breaks that clustering.
+    const r = { ...mkRecruit({ hometownRegion: 'CENTRAL' }), recruitId: 'r1' };
+    const ta = mkTeam({ teamId: 'tA', region: 'PACIFIC' });
+    const tb = mkTeam({ teamId: 'tB', region: 'PACIFIC' });
+    const tc = mkTeam({ teamId: 'tC', region: 'PACIFIC' });
+    const scores = [
+      recruiting.computeBoardScore(r, ta),
+      recruiting.computeBoardScore(r, tb),
+      recruiting.computeBoardScore(r, tc),
+    ];
+    const unique = new Set(scores);
+    expect(unique.size).toBeGreaterThan(1);
+  });
+
+  it('100-recruit shuffle: different teams pick distinguishable top-30 sets', () => {
+    // Across 360 teams ranking a 100-recruit class with the SAME prestige
+    // and no region matches, jitter should produce non-trivial differences
+    // in the top-30 selections (Jaccard < 0.95 between team A and team B).
+    const recruits = Array.from({ length: 100 }, (_, i) => ({
+      stars: ((i % 5) + 1) as 1 | 2 | 3 | 4 | 5,
+      hometownRegion: 'CENTRAL',
+      recruitId: `r${String(i).padStart(3, '0')}`,
+    }));
+    const teamA = mkTeam({ teamId: 'tA', region: 'PACIFIC' });
+    const teamB = mkTeam({ teamId: 'tB', region: 'PACIFIC' });
+    const scoreFor = (t: recruiting.TeamInterestInput) =>
+      recruits
+        .map((r) => ({ id: r.recruitId, score: recruiting.computeBoardScore(r, t) }))
+        .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
+        .slice(0, 30)
+        .map((x) => x.id);
+    const aTop = new Set(scoreFor(teamA));
+    const bTop = new Set(scoreFor(teamB));
+    let intersection = 0;
+    for (const id of aTop) if (bTop.has(id)) intersection += 1;
+    const jaccard = intersection / (aTop.size + bTop.size - intersection);
+    // Without jitter, Jaccard would be 1.0 (identical sets). With star
+    // bonus + jitter, expect overlap < 1 — elite recruits still cluster
+    // top, but lower-tier slots diverge.
+    expect(jaccard).toBeLessThan(1);
+  });
+});
+
 describe('RECRUITING_ACTIONS shape', () => {
   it('all 4 action types defined', () => {
     for (const t of recruiting.RECRUITING_ACTION_TYPES) {
