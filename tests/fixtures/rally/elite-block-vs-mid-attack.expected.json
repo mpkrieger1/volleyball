@@ -1,0 +1,64 @@
+{
+  "seed": 11,
+  "servingTeam": "away",
+  "winningTeam": "away",
+  "events": [
+    {
+      "kind": "serve",
+      "tick": 0,
+      "team": "away",
+      "server": 0,
+      "quality": "in_play",
+      "inPlayGrade": 1
+    },
+    {
+      "kind": "reception",
+      "tick": 1,
+      "team": "home",
+      "receiver": 0,
+      "grade": 1
+    },
+    {
+      "kind": "set",
+      "tick": 2,
+      "team": "home",
+      "setter": 1,
+      "quality": "perfect"
+    },
+    {
+      "kind": "attack",
+      "tick": 3,
+      "team": "home",
+      "attacker": 2,
+      "outcome": "dug"
+    },
+    {
+      "kind": "dig",
+      "tick": 4,
+      "team": "away",
+      "digger": 2,
+      "grade": 2
+    },
+    {
+      "kind": "set",
+      "tick": 5,
+      "team": "away",
+      "setter": 3,
+      "quality": "good"
+    },
+    {
+      "kind": "attack",
+      "tick": 6,
+      "team": "away",
+      "attacker": 4,
+      "outcome": "kill"
+    },
+    {
+      "kind": "point",
+      "tick": 7,
+      "winner": "away",
+      "reason": "kill"
+    }
+  ],
+  "contacts": 7
+}

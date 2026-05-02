@@ -1,0 +1,21 @@
+{
+  "seed": "rotation-0",
+  "servingTeam": "home",
+  "winningTeam": "home",
+  "events": [
+    {
+      "kind": "serve",
+      "tick": 0,
+      "team": "home",
+      "server": 0,
+      "quality": "ace"
+    },
+    {
+      "kind": "point",
+      "tick": 1,
+      "winner": "home",
+      "reason": "service_ace"
+    }
+  ],
+  "contacts": 1
+}

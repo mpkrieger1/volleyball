@@ -1,0 +1,43 @@
+{
+  "seed": "libero-swap",
+  "servingTeam": "away",
+  "winningTeam": "away",
+  "events": [
+    {
+      "kind": "serve",
+      "tick": 0,
+      "team": "away",
+      "server": 0,
+      "quality": "in_play",
+      "inPlayGrade": 1
+    },
+    {
+      "kind": "reception",
+      "tick": 1,
+      "team": "home",
+      "receiver": 5,
+      "grade": 2
+    },
+    {
+      "kind": "set",
+      "tick": 2,
+      "team": "home",
+      "setter": 0,
+      "quality": "good"
+    },
+    {
+      "kind": "attack",
+      "tick": 3,
+      "team": "home",
+      "attacker": 2,
+      "outcome": "error"
+    },
+    {
+      "kind": "point",
+      "tick": 4,
+      "winner": "away",
+      "reason": "attack_error"
+    }
+  ],
+  "contacts": 4
+}

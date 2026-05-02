@@ -1,0 +1,5 @@
+{
+  "note": "Authoritative expected-counts for seed invariants. Any intentional change to conferences.csv / teams.csv must update this file in the same commit.",
+  "conferences": 31,
+  "teams": 360
+}

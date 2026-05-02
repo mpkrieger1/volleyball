@@ -1,0 +1,45 @@
+node_modules/
+dist/
+out/
+build/
+coverage/
+.vite/
+.turbo/
+.cache/
+
+# Build outputs per workspace
+app/dist/
+main/dist/
+workers/dist/
+shared/dist/
+tests/playwright-report/
+tests/test-results/
+
+# Electron builder output
+release/
+
+# SQLite save files
+*.db
+*.db-journal
+prisma/dev.db*
+
+# Env / local
+.env
+.env.local
+.env.*.local
+
+# OS / editors
+.DS_Store
+Thumbs.db
+*.log
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Code-signing certificates (Sprint 24 Task 24.2)
+*.pfx
+*.p12
+
+# FCCD reference unpack — NEVER commit (CLAUDE.md §Critical Rule 1)
+resources/
+

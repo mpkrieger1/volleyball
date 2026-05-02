@@ -1,0 +1,15 @@
+{
+  "name": "@vcd/main",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b && electron ."
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "@vcd/shared": "*",
+    "@vcd/workers": "*"
+  }
+}

@@ -1,0 +1,32 @@
+id,name,abbr,tier,autoBidEligible
+acc,Atlantic Coast Conference,ACC,P4,true
+big12,Big 12 Conference,B12,P4,true
+bigten,Big Ten Conference,B1G,P4,true
+sec,Southeastern Conference,SEC,P4,true
+aac,American Athletic Conference,AAC,G5,true
+mwc,Mountain West Conference,MWC,G5,true
+sunbelt,Sun Belt Conference,SBC,G5,true
+cusa,Conference USA,CUSA,G5,true
+mac,Mid-American Conference,MAC,G5,true
+bigeast,Big East Conference,BE,G5,true
+wcc,West Coast Conference,WCC,G5,true
+a10,Atlantic 10 Conference,A10,MID,true
+bigwest,Big West Conference,BW,MID,true
+caa,Coastal Athletic Association,CAA,MID,true
+ivy,Ivy League,IVY,MID,true
+maac,Metro Atlantic Athletic Conference,MAAC,MID,true
+mvc,Missouri Valley Conference,MVC,MID,true
+patriot,Patriot League,PAT,MID,true
+summit,Summit League,SUM,MID,true
+horizon,Horizon League,HOR,MID,true
+asun,ASUN Conference,ASUN,MID,true
+bigsky,Big Sky Conference,BSK,MID,true
+bigsouth,Big South Conference,BSO,MID,true
+southern,Southern Conference,SOC,MID,true
+southland,Southland Conference,SLC,MID,true
+meac,Mid-Eastern Athletic Conference,MEAC,MID,true
+swac,Southwestern Athletic Conference,SWAC,MID,true
+ovc,Ohio Valley Conference,OVC,MID,true
+northeast,Northeast Conference,NEC,MID,true
+americaeast,America East Conference,AE,MID,true
+wac,Western Athletic Conference,WAC,MID,true

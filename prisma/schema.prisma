@@ -1,0 +1,492 @@
+// VCD — Prisma schema v1 (Sprint 2)
+// See PRD §3.3 for the authoritative entity list.
+// CLAUDE.md conventions:
+//   - cuid() string PKs
+//   - ratings 0–100 Int
+//   - money/NIL in cents (Int)
+//   - dates as ISO 8601 UTC (Prisma DateTime)
+//   - JSON blobs stored as String + validated via zod schemas in /shared
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// League structure
+// ─────────────────────────────────────────────────────────────
+
+model Conference {
+  id               String  @id @default(cuid())
+  name             String  @unique
+  abbr             String  @unique
+  tier             String // 'P4' | 'G5' | 'MID' | 'IND'
+  autoBidEligible  Boolean @default(true)
+
+  teams Team[]
+
+  @@index([tier])
+}
+
+model Team {
+  id             String  @id @default(cuid())
+  schoolName     String  @unique
+  abbr           String  @unique
+  primaryColor   String // "#RRGGBB"
+  secondaryColor String // "#RRGGBB"
+  logoPath       String // filesystem path or "placeholder:<ABBR>" sentinel
+  prestige       Int     @default(55) // 0–100
+  /// 'EAST' | 'CENTRAL' | 'MOUNTAIN' | 'PACIFIC'. Used by the scheduler's
+  /// travel-sanity soft constraint (Sprint 7).
+  region         String  @default("CENTRAL")
+
+  conferenceId String
+  conference   Conference @relation(fields: [conferenceId], references: [id])
+
+  /// Sprint 17: team operating budget in cents. Debited on coach firings
+  /// (buyouts). Seeded at league build from prestige.
+  operatingBudgetCents Int @default(5000000)
+
+  /// Sprint 19: preferred offensive system, used by the pre-match scout
+  /// report. Sim still hardcodes `defaultSystem51()` until a future sprint
+  /// wires this column into match dispatch. Values: '5-1' | '6-2'.
+  preferredSystem String @default("5-1")
+
+  players          Player[]
+  coaches          Coach[]
+  coachBuyouts     CoachBuyout[]
+  homeMatches      Match[]           @relation("HomeTeam")
+  awayMatches      Match[]           @relation("AwayTeam")
+  polls            Poll[]
+  rpiSnapshots     RPISnapshot[]
+  boosters         Booster[]
+
+  @@index([conferenceId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// People
+// ─────────────────────────────────────────────────────────────
+
+model Player {
+  id           String  @id @default(cuid())
+  teamId       String
+  team         Team    @relation(fields: [teamId], references: [id])
+  firstName    String
+  lastName     String
+  position     String // 'OH' | 'MB' | 'OPP' | 'S' | 'L' | 'DS'
+  classYear    String // 'FR' | 'SO' | 'JR' | 'SR' | 'GR'
+  height       Int // cm
+  jersey       Int
+
+  // Ratings (0–100)
+  ratingAttack       Int
+  ratingBlock        Int
+  ratingServe        Int
+  ratingPass         Int
+  ratingSet          Int
+  ratingDig          Int
+  ratingAthleticism  Int
+  ratingIq           Int
+  ratingStamina      Int
+
+  potential    Int // 0–100
+  redshirtUsed Boolean @default(false)
+  /// Sprint 16: once true, Player.redshirtUsed cannot flip mid-season.
+  /// Auto-flipped to true on first PlayerMatchStat write of a season.
+  redshirtLocked Boolean @default(false)
+  isLibero     Boolean @default(false)
+  isCaptain    Boolean @default(false)
+
+  matchStats   PlayerMatchStat[]
+  nilDeals     NilDeal[]
+  portalEntries TransferPortal[]
+
+  @@index([teamId])
+}
+
+/// Sprint 16: archive of graduated players. Preserves final ratings +
+/// team history. Player rows move here atomically during runOffseason.
+model PlayerArchive {
+  id               String   @id @default(cuid())
+  originalPlayerId String   @unique
+  firstName        String
+  lastName         String
+  position         String
+  finalTeamId      String
+  finalClassYear   String
+  finalRatingsJson String   // zod-validated JSON blob
+  finalPotential   Int
+  seasonRetired    Int
+  archivedAt       DateTime @default(now())
+
+  @@index([finalTeamId])
+  @@index([seasonRetired])
+}
+
+model Coach {
+  id             String @id @default(cuid())
+  firstName      String
+  lastName       String
+  role           String // 'HC' | 'AHC' | 'AC'
+  teamId         String?
+  team           Team?  @relation(fields: [teamId], references: [id])
+  contractYears  Int    @default(1)
+  salary         Int    @default(0) // cents
+  ratingRecruit  Int    @default(50)
+  ratingDevelop  Int    @default(50)
+  ratingStrategy Int    @default(50)
+  careerWins     Int    @default(0)
+  /// Sprint 17: season the coach was hired by current team (for buyout math).
+  hireSeason     Int    @default(2026)
+
+  buyouts CoachBuyout[]
+
+  @@index([teamId])
+  @@index([teamId, role])
+}
+
+/// Sprint 17: free-agent pool refreshed each offseason.
+model CoachingPool {
+  id                 String @id @default(cuid())
+  firstName          String
+  lastName           String
+  ratingRecruit      Int
+  ratingDevelop      Int
+  ratingStrategy     Int
+  askingSalaryCents  Int
+  preferredRole      String // 'HC' | 'AHC' | 'AC'
+  ageYears           Int
+  seasonAvailable    Int
+
+  @@index([seasonAvailable])
+}
+
+/// Sprint 17: ledger of coach firings triggering buyouts.
+model CoachBuyout {
+  id           String   @id @default(cuid())
+  coachId      String
+  coach        Coach    @relation(fields: [coachId], references: [id])
+  teamId       String
+  team         Team     @relation(fields: [teamId], references: [id])
+  amountCents  Int
+  seasonYear   Int
+  createdAt    DateTime @default(now())
+
+  @@index([teamId])
+  @@index([coachId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Recruiting / portal / NIL (skeletons — expanded Sprint 13–15)
+// ─────────────────────────────────────────────────────────────
+
+model Recruit {
+  id            String  @id @default(cuid())
+  firstName     String
+  lastName      String
+  position      String // 'OH' | 'MB' | 'OPP' | 'S' | 'L' | 'DS'
+  stars         Int // 1..5
+  ratingsJson   String // zod-validated JSON blob (see @vcd/shared/sim PlayerRatingsSchema)
+  commitTeamId  String?
+
+  /// Sprint 12: physical + hometown info from the generator.
+  /// height stored in cm (schema convention: int-only). Nullable only
+  /// because pre-Sprint-12 save DBs have no Recruit rows.
+  height          Int?
+  hometownCity    String?
+  hometownState   String? // 2-letter code
+  hometownRegion  String? // 'EAST' | 'CENTRAL' | 'MOUNTAIN' | 'PACIFIC'
+  /// 0..100 potential ceiling, sampled by generator and distinct from
+  /// current ratings.
+  potential       Int?
+
+  /// Sprint 13: recruiting-cycle state machine.
+  /// 'PENDING' | 'COMMITTED' | 'UNCOMMITTED'.
+  /// ('SIGNED_ELSEWHERE' is implicit for non-committing teams.)
+  commitState     String  @default("PENDING")
+  committedAtWeek Int?
+  seasonYear      Int?
+
+  interests RecruitInterest[]
+
+  @@index([commitState])
+  @@index([seasonYear])
+  // Sprint 21: support recruiting-board filter/sort within 500ms over 1000+
+  // recruits. Most board queries are scoped by seasonYear AND filter on at
+  // least one of (position, stars).
+  @@index([position])
+  @@index([stars])
+  @@index([seasonYear, position, stars])
+}
+
+/// Sprint 13: per-(recruit, team) interest level (0–1000 scaled int).
+model RecruitInterest {
+  id            String  @id @default(cuid())
+  recruitId     String
+  recruit       Recruit @relation(fields: [recruitId], references: [id], onDelete: Cascade)
+  teamId        String
+  interest      Int     @default(0)
+  actionsSpent  Int     @default(0)
+
+  @@unique([recruitId, teamId])
+  @@index([teamId])
+}
+
+/// Sprint 13: per-team per-week recruiting-points spent (tracks budget).
+model RecruitingBudget {
+  id         String @id @default(cuid())
+  teamId     String
+  week       Int
+  pointsSpent Int   @default(0)
+
+  @@unique([teamId, week])
+  @@index([teamId])
+}
+
+model TransferPortal {
+  id          String   @id @default(cuid())
+  playerId    String
+  player      Player   @relation(fields: [playerId], references: [id])
+  reasonCode  String
+  enteredDate DateTime
+  newTeamId   String?
+
+  /// Sprint 14: portal state machine.
+  /// 'ACTIVE' (in portal, unsigned) | 'SIGNED' (committed to newTeamId)
+  /// | 'UNSIGNED' (cycle closed without commit; stays on original team)
+  status         String @default("ACTIVE")
+  enteredAtWeek  Int?
+  /// Sprint 14: NIL offer attached to the commit (cents). Nullable.
+  nilOfferAmount Int?
+
+  interests PortalInterest[]
+
+  @@index([playerId])
+  @@index([status])
+}
+
+/// Sprint 14: per-(portal-player, team) interest for portal pursuit.
+model PortalInterest {
+  id                String          @id @default(cuid())
+  transferPortalId  String
+  portal            TransferPortal  @relation(fields: [transferPortalId], references: [id], onDelete: Cascade)
+  teamId            String
+  interest          Int             @default(0)
+  actionsSpent      Int             @default(0)
+  /// Most recent NIL offer from this team to this portal player (cents).
+  lastNilOffer      Int             @default(0)
+
+  @@unique([transferPortalId, teamId])
+  @@index([teamId])
+}
+
+/// Sprint 14: per-team per-week portal-points spent.
+model PortalBudget {
+  id          String @id @default(cuid())
+  teamId      String
+  week        Int
+  pointsSpent Int    @default(0)
+
+  @@unique([teamId, week])
+  @@index([teamId])
+}
+
+model NilDeal {
+  id                     String @id @default(cuid())
+  playerId               String
+  player                 Player @relation(fields: [playerId], references: [id])
+  brand                  String
+  amount                 Int // cents
+  durationMonths         Int
+  teamRestrictionLevel   String // 'NONE' | 'BOOSTER' | 'EXCLUSIVE'
+
+  @@index([playerId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Matches / sets / stats
+// ─────────────────────────────────────────────────────────────
+
+model Match {
+  id           String   @id @default(cuid())
+  homeTeamId   String
+  homeTeam     Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId   String
+  awayTeam     Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  date         DateTime
+  week         Int
+  isConference Boolean  @default(false)
+  isTournament Boolean  @default(false)
+  isNeutralSite Boolean @default(false)
+  /// Sprint 11: labels which round this match belongs to in a tournament.
+  /// One of 'CT_R1' | 'CT_SF' | 'CT_F' | 'NCAA_R64' | 'NCAA_R32' | 'NCAA_S16'
+  /// | 'NCAA_E8' | 'NCAA_FF' | 'NCAA_CHAMP'. Null for regular season. When
+  /// non-null, isTournament must be true.
+  tournamentRound String?
+  /// Sprint 11: within-round position used for deterministic pairing into
+  /// the next round. Matches 2i and 2i+1 in round N pair to form match i
+  /// in round N+1. Region-scoped for NCAA R64..E8 (slots 0..7 per region).
+  bracketSlot Int?
+  /// Sprint 11: identifies the bracket this tournament match belongs to.
+  /// For CT: the conferenceId. For NCAA regional rounds (R64..E8): the
+  /// region key ('REGION_1'..'REGION_4'). For NCAA global rounds (FF,
+  /// CHAMP): the literal string 'NCAA'.
+  bracketGroupKey String?
+  winnerId     String?
+  boxScoreJson String? // zod-validated
+  pbpJson      String? // zod-validated
+  /// Sprint 23: encoding for `pbpJson`. 'json' = legacy plaintext (Sprints
+  /// 1-22). 'gzip-base64' = Sprint 23+ default; payload is base64(gzip(JSON)).
+  /// 'pruned' = retention utility cleared the row; pbpJson is NULL.
+  pbpEncoding  String  @default("json")
+  /// Sprint 19: timeout + libero-sub timeline used by the Match Hub
+  /// ticker for banner overlays. Schema = MatchTimelineSchema in
+  /// `shared/src/sim/timeline.ts`. Null until a match completes.
+  timelineJson String?
+
+  sets       Set[]
+  playerStats PlayerMatchStat[]
+
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+  @@index([date])
+}
+
+model Set {
+  id         String @id @default(cuid())
+  matchId    String
+  match      Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  index      Int
+  home       Int
+  away       Int
+  durationSec Int
+
+  @@index([matchId])
+}
+
+model PlayerMatchStat {
+  id              String @id @default(cuid())
+  playerId        String
+  player          Player @relation(fields: [playerId], references: [id])
+  matchId         String
+  match           Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  kills           Int @default(0)
+  errors          Int @default(0)
+  totalAttacks    Int @default(0)
+  hittingPct      Int @default(0) // scaled ×1000 to stay Int
+  assists         Int @default(0)
+  serviceAces     Int @default(0)
+  serviceErrors   Int @default(0)
+  receptionErrors Int @default(0)
+  digs            Int @default(0)
+  blockSolos      Int @default(0)
+  blockAssists    Int @default(0)
+  rotationMinutes Int @default(0)
+
+  @@index([playerId])
+  @@index([matchId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Rankings
+// ─────────────────────────────────────────────────────────────
+
+model Poll {
+  id              String @id @default(cuid())
+  week            Int
+  rank            Int
+  teamId          String
+  team            Team   @relation(fields: [teamId], references: [id])
+  prevRank        Int?
+  firstPlaceVotes Int    @default(0)
+
+  @@unique([week, teamId])
+  @@index([week])
+}
+
+model RPISnapshot {
+  id       String @id @default(cuid())
+  week     Int
+  teamId   String
+  team     Team   @relation(fields: [teamId], references: [id])
+  rpi      Int // scaled ×1000
+  wins     Int
+  losses   Int
+  sos      Int // scaled ×1000
+  q1Wins   Int
+  q2Wins   Int
+  q3Wins   Int
+  q4Wins   Int
+
+  @@unique([week, teamId])
+  @@index([week])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Season / awards / misc
+// ─────────────────────────────────────────────────────────────
+
+model BracketEntry {
+  id         String @id @default(cuid())
+  seasonYear Int
+  region     String // 'REGION_1' | 'REGION_2' | 'REGION_3' | 'REGION_4'
+  seed       Int // 1..16
+  teamId     String
+  autoBid    Boolean @default(false)
+  metricRank Int
+
+  @@unique([seasonYear, region, seed])
+  @@unique([seasonYear, teamId])
+  @@index([seasonYear])
+}
+
+model Season {
+  id           String @id @default(cuid())
+  year         Int    @unique
+  phase        String // 'PRESEASON' | 'REGULAR' | 'CONF_TOURNEY' | 'NCAA' | 'OFFSEASON' | 'RECRUITING' | 'PORTAL'
+  userTeamId   String?
+  currentWeek  Int    @default(0)
+  /// Sprint 11: the team that won the NCAA championship for this season.
+  /// Null until the NCAA_CHAMP match's winner is persisted.
+  nationalChampionTeamId String?
+  /// Sprint 13: current recruiting-cycle week (0..12). 0 = cycle not open.
+  recruitingWeek Int @default(0)
+  /// Sprint 14: current portal-cycle week (0..6). 0 = cycle not open.
+  portalWeek     Int @default(0)
+}
+
+model Award {
+  id         String @id @default(cuid())
+  seasonYear Int
+  category   String // 'AA_FIRST' | 'AA_SECOND' | 'AA_THIRD' | 'AA_HM' | 'POY' | ...
+  playerId   String
+  team       String // 'first' | 'second' | 'third' | 'hm'
+
+  @@index([seasonYear])
+}
+
+model Booster {
+  id               String @id @default(cuid())
+  teamId           String @unique
+  team             Team   @relation(fields: [teamId], references: [id])
+  collectiveBudget Int    @default(0) // cents
+  enthusiasm       Int    @default(50) // 0–100
+}
+
+// ─────────────────────────────────────────────────────────────
+// Save slots (metadata row inside each per-slot DB)
+// ─────────────────────────────────────────────────────────────
+
+model SaveSlot {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  createdAt    DateTime @default(now())
+  lastOpenedAt DateTime @default(now())
+  dynastyYear  Int      @default(2026)
+}

@@ -1,0 +1,85 @@
+{
+  "seed": "rotation-2",
+  "servingTeam": "home",
+  "winningTeam": "away",
+  "events": [
+    {
+      "kind": "serve",
+      "tick": 0,
+      "team": "home",
+      "server": 2,
+      "quality": "in_play",
+      "inPlayGrade": 2
+    },
+    {
+      "kind": "reception",
+      "tick": 1,
+      "team": "away",
+      "receiver": 0,
+      "grade": 3
+    },
+    {
+      "kind": "set",
+      "tick": 2,
+      "team": "away",
+      "setter": 0,
+      "quality": "perfect"
+    },
+    {
+      "kind": "attack",
+      "tick": 3,
+      "team": "away",
+      "attacker": 2,
+      "outcome": "dug"
+    },
+    {
+      "kind": "dig",
+      "tick": 4,
+      "team": "home",
+      "digger": 2,
+      "grade": 2
+    },
+    {
+      "kind": "set",
+      "tick": 5,
+      "team": "home",
+      "setter": 0,
+      "quality": "good"
+    },
+    {
+      "kind": "attack",
+      "tick": 6,
+      "team": "home",
+      "attacker": 4,
+      "outcome": "dug"
+    },
+    {
+      "kind": "dig",
+      "tick": 7,
+      "team": "away",
+      "digger": 4,
+      "grade": 2
+    },
+    {
+      "kind": "set",
+      "tick": 8,
+      "team": "away",
+      "setter": 0,
+      "quality": "perfect"
+    },
+    {
+      "kind": "attack",
+      "tick": 9,
+      "team": "away",
+      "attacker": 2,
+      "outcome": "kill"
+    },
+    {
+      "kind": "point",
+      "tick": 10,
+      "winner": "away",
+      "reason": "kill"
+    }
+  ],
+  "contacts": 10
+}

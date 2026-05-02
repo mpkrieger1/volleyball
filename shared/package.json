@@ -1,0 +1,29 @@
+{
+  "name": "@vcd/shared",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./rng": {
+      "types": "./dist/rng.d.ts",
+      "default": "./dist/rng.js"
+    },
+    "./seed": {
+      "types": "./dist/seed/leagueSeed.d.ts",
+      "default": "./dist/seed/leagueSeed.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "zod": "^3.23.8"
+  }
+}

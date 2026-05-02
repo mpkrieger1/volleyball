@@ -1,0 +1,26 @@
+{
+  "seed": 11,
+  "servingTeam": "away",
+  "home": {
+    "team": "home",
+    "players": [
+      { "attack": 60, "block": 50, "serve": 50, "pass": 50, "set": 50, "dig": 50, "athleticism": 55, "iq": 55, "stamina": 55 },
+      { "attack": 60, "block": 50, "serve": 50, "pass": 50, "set": 50, "dig": 50, "athleticism": 55, "iq": 55, "stamina": 55 },
+      { "attack": 60, "block": 50, "serve": 50, "pass": 50, "set": 50, "dig": 50, "athleticism": 55, "iq": 55, "stamina": 55 },
+      { "attack": 60, "block": 50, "serve": 50, "pass": 50, "set": 50, "dig": 50, "athleticism": 55, "iq": 55, "stamina": 55 },
+      { "attack": 60, "block": 50, "serve": 50, "pass": 50, "set": 50, "dig": 50, "athleticism": 55, "iq": 55, "stamina": 55 },
+      { "attack": 60, "block": 50, "serve": 50, "pass": 50, "set": 50, "dig": 50, "athleticism": 55, "iq": 55, "stamina": 55 }
+    ]
+  },
+  "away": {
+    "team": "away",
+    "players": [
+      { "attack": 50, "block": 90, "serve": 50, "pass": 50, "set": 50, "dig": 65, "athleticism": 70, "iq": 70, "stamina": 70 },
+      { "attack": 50, "block": 90, "serve": 50, "pass": 50, "set": 50, "dig": 65, "athleticism": 70, "iq": 70, "stamina": 70 },
+      { "attack": 50, "block": 90, "serve": 50, "pass": 50, "set": 50, "dig": 65, "athleticism": 70, "iq": 70, "stamina": 70 },
+      { "attack": 50, "block": 90, "serve": 50, "pass": 50, "set": 50, "dig": 65, "athleticism": 70, "iq": 70, "stamina": 70 },
+      { "attack": 50, "block": 90, "serve": 50, "pass": 50, "set": 50, "dig": 65, "athleticism": 70, "iq": 70, "stamina": 70 },
+      { "attack": 50, "block": 90, "serve": 50, "pass": 50, "set": 50, "dig": 65, "athleticism": 70, "iq": 70, "stamina": 70 }
+    ]
+  }
+}

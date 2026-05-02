@@ -1,0 +1,43 @@
+{
+  "seed": "rotation-3",
+  "servingTeam": "home",
+  "winningTeam": "home",
+  "events": [
+    {
+      "kind": "serve",
+      "tick": 0,
+      "team": "home",
+      "server": 3,
+      "quality": "in_play",
+      "inPlayGrade": 1
+    },
+    {
+      "kind": "reception",
+      "tick": 1,
+      "team": "away",
+      "receiver": 0,
+      "grade": 2
+    },
+    {
+      "kind": "set",
+      "tick": 2,
+      "team": "away",
+      "setter": 0,
+      "quality": "ok"
+    },
+    {
+      "kind": "attack",
+      "tick": 3,
+      "team": "away",
+      "attacker": 2,
+      "outcome": "error"
+    },
+    {
+      "kind": "point",
+      "tick": 4,
+      "winner": "home",
+      "reason": "attack_error"
+    }
+  ],
+  "contacts": 4
+}

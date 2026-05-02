@@ -1,0 +1,47 @@
+name: Calibration Nightly
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # 06:00 UTC daily
+  workflow_dispatch: {}
+
+jobs:
+  calibrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      - name: Build shared + workers
+        run: npm -w shared run build && npm -w workers run build
+
+      - name: Sprint 5 — isolated-rally calibration (10K Monte Carlo)
+        run: npm run test:calibration:full
+
+      - name: Sprint 22 — full-season calibration (5 fixed-seed seasons)
+        run: npm run test:calibration-season
+        continue-on-error: true  # surface in summary, don't block other workflows
+
+      - name: Upload calibration results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: calibration-results
+          path: |
+            tests/test-results/
+            docs/calibration/tuning-log.md
+          retention-days: 30
+          if-no-files-found: ignore

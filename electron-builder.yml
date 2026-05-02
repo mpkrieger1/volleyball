@@ -1,0 +1,28 @@
+appId: com.kriegeranalytics.vcd
+productName: VCD
+copyright: Copyright © 2026 Krieger Analytics
+directories:
+  output: release
+  buildResources: build-resources
+files:
+  - package.json
+  - main/dist/**/*
+  - workers/dist/**/*
+  - shared/dist/**/*
+  - app/dist/**/*
+  - '!**/*.map'
+  - '!**/*.test.*'
+  - '!**/tsconfig*.json'
+extraMetadata:
+  main: main/dist/index.js
+asar: true
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: VCD
