@@ -1,10 +1,15 @@
 // Sprint 19: polished Match Hub. Scout panel, paced PBP ticker, set-by-set
 // scoreboard with rally-duration bars, timeout/sub banners, final box score.
+// Sprint 27 (Task 27.2): locked to user-team matches when userTeamId is
+// known. Dual-team picker is preserved as a fallback for legacy saves
+// where userTeamId is null (Sprint 21 user-team-picker hadn't fired).
 
 import { useEffect, useMemo } from 'react';
 import { sim } from '@vcd/shared';
 import { useMatchHubStore } from '../store/useMatchHubStore';
 import { useSaveSlotsStore } from '../store/useSaveSlotsStore';
+import { useUserTeamStore } from '../store/useUserTeamStore';
+import { useScheduleStore } from '../store/useScheduleStore';
 import type { ReplaySpeed } from '../match/replayScheduler';
 
 const SPEEDS: ReplaySpeed[] = ['1x', '2x', '4x', 'instant'];
@@ -42,12 +47,34 @@ export function MatchHub() {
   const setSpeedAction = useMatchHubStore((s) => s.setSpeed);
   const finishInstantly = useMatchHubStore((s) => s.finishInstantly);
   const reset = useMatchHubStore((s) => s.reset);
+  // Sprint 26 (Tasks 26.2 + 26.6): paused-replay coach controls.
+  const homeTimeoutsRemaining = useMatchHubStore((s) => s.homeTimeoutsRemaining);
+  const awayTimeoutsRemaining = useMatchHubStore((s) => s.awayTimeoutsRemaining);
+  const injectUserTimeout = useMatchHubStore((s) => s.injectUserTimeout);
+  const injectUserSub = useMatchHubStore((s) => s.injectUserSub);
+  const userSubs = useMatchHubStore((s) => s.userSubs);
+  // Sprint 27 (Task 27.2): user-team-locked match picker.
+  const loadMatchForReplay = useMatchHubStore((s) => s.loadMatchForReplay);
+  const userTeamId = useUserTeamStore((s) => s.userTeamId);
+  const scheduleRows = useScheduleStore((s) => s.rows);
+  const scheduleStatus = useScheduleStore((s) => s.status);
+  const selectScheduleTeam = useScheduleStore((s) => s.selectTeam);
 
   useEffect(() => {
     if (openedSlotId && teams.length === 0 && phase === 'select') {
       void loadTeams(openedSlotId);
     }
   }, [openedSlotId, teams.length, phase, loadTeams]);
+
+  // Sprint 27 (Task 27.2): when the Hub mounts and the user has a team,
+  // load that team's schedule so the match list can render.
+  useEffect(() => {
+    if (!openedSlotId || !userTeamId) return;
+    if (scheduleStatus === 'idle' || scheduleStatus === 'ready') {
+      // Selecting the user's team also populates `rows` for them.
+      void selectScheduleTeam(openedSlotId, userTeamId);
+    }
+  }, [openedSlotId, userTeamId, scheduleStatus, selectScheduleTeam]);
 
   // Auto-fetch scout when both teams selected and not yet loaded for this opponent.
   useEffect(() => {
@@ -94,52 +121,89 @@ export function MatchHub() {
         </p>
       </header>
 
-      <div className="match-hub__pickers" role="group" aria-label="Team selection">
-        <label>
-          <span>Home</span>
-          <select
-            value={selectedHomeId ?? ''}
-            onChange={(e) => setHomeTeam(e.target.value)}
-            aria-label="Home team"
-          >
-            <option value="">Select home team…</option>
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.schoolName} ({t.abbr})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Away</span>
-          <select
-            value={selectedAwayId ?? ''}
-            onChange={(e) => setAwayTeam(e.target.value)}
-            aria-label="Away team"
-          >
-            <option value="">Select away team…</option>
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.schoolName} ({t.abbr})
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          onClick={() => {
-            if (openedSlotId) void simulateAndLoad(openedSlotId);
+      {userTeamId && (phase === 'select' || phase === 'loading-teams' || phase === 'ready-to-play' || phase === 'loading-scout') && (
+        <UserTeamMatchList
+          rows={scheduleRows}
+          userTeamId={userTeamId}
+          teams={teams}
+          onSimulate={(opp, isUserHome) => {
+            if (!openedSlotId) return;
+            const home = isUserHome ? userTeamId : opp;
+            const away = isUserHome ? opp : userTeamId;
+            setHomeTeam(home);
+            setAwayTeam(away);
           }}
-          disabled={!canSimulate}
-        >
-          {phase === 'simulating' || phase === 'loading-replay' ? 'Loading…' : 'Play match'}
-        </button>
-        {(phase === 'replay-ready' || phase === 'paused' || phase === 'done') && (
-          <button type="button" onClick={() => reset()}>
-            New match
+          onReplay={(matchId) => {
+            if (!openedSlotId) return;
+            void loadMatchForReplay(openedSlotId, matchId);
+          }}
+          phase={phase}
+          openedSlotId={openedSlotId}
+          simulateAndLoad={simulateAndLoad}
+        />
+      )}
+
+      {!userTeamId && (
+        <div className="match-hub__pickers" role="group" aria-label="Team selection (legacy)">
+          <p className="match-hub__sub" data-testid="legacy-picker-banner">
+            No user team is set on this save. Pick your team from the Hub
+            for the proper experience. (This dual-team picker is a legacy
+            fallback for pre-Sprint-21 saves.)
+          </p>
+          <label>
+            <span>Home</span>
+            <select
+              value={selectedHomeId ?? ''}
+              onChange={(e) => setHomeTeam(e.target.value)}
+              aria-label="Home team"
+            >
+              <option value="">Select home team…</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.schoolName} ({t.abbr})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Away</span>
+            <select
+              value={selectedAwayId ?? ''}
+              onChange={(e) => setAwayTeam(e.target.value)}
+              aria-label="Away team"
+            >
+              <option value="">Select away team…</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.schoolName} ({t.abbr})
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              if (openedSlotId) void simulateAndLoad(openedSlotId);
+            }}
+            disabled={!canSimulate}
+          >
+            {phase === 'simulating' || phase === 'loading-replay' ? 'Loading…' : 'Play match'}
           </button>
-        )}
-      </div>
+          {(phase === 'replay-ready' || phase === 'paused' || phase === 'done') && (
+            <button type="button" onClick={() => reset()}>
+              New match
+            </button>
+          )}
+        </div>
+      )}
+
+      {(phase === 'replay-ready' || phase === 'paused' || phase === 'done') && userTeamId && (
+        <div className="match-hub__pickers" role="group" aria-label="Match controls">
+          <button type="button" onClick={() => reset()}>
+            Back to match list
+          </button>
+        </div>
+      )}
 
       {error && (
         <p role="alert" className="match-hub__error">
@@ -197,6 +261,20 @@ export function MatchHub() {
             </div>
           )}
 
+          {phase === 'paused' && (
+            <CoachPanel
+              homeAbbr={match.home.teamAbbr}
+              awayAbbr={match.away.teamAbbr}
+              homeTimeoutsRemaining={homeTimeoutsRemaining}
+              awayTimeoutsRemaining={awayTimeoutsRemaining}
+              homeLineup={match.home.lineupSlots}
+              awayLineup={match.away.lineupSlots}
+              userSubs={userSubs}
+              onTimeout={(side) => injectUserTimeout(side)}
+              onSub={(side, slot, playerId) => injectUserSub(side, slot, playerId)}
+            />
+          )}
+
           <Ticker entries={visibleTicker} match={match} />
 
           {phase === 'done' && (
@@ -214,6 +292,242 @@ export function MatchHub() {
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * Sprint 27 (Task 27.2): user-team-locked match list. Replaces the legacy
+ * dual-team picker for any save where Season.userTeamId is set.
+ *
+ * Lists the user team's matches grouped by date. Unplayed matches show a
+ * "Play match" CTA → simulates with the user team as home or away
+ * depending on `isHome`. Played matches show a "Replay" CTA → loads the
+ * existing PBP/box-score via getById without re-simulating.
+ */
+function UserTeamMatchList(props: {
+  rows: Array<{
+    matchId: string;
+    weekIndex: number;
+    isoDate: string;
+    opponentId: string;
+    opponentSchool: string;
+    opponentAbbr: string;
+    isHome: boolean;
+    isConference: boolean;
+    isTournament: boolean;
+    winnerId: string | null;
+  }>;
+  userTeamId: string;
+  teams: Array<{ id: string; schoolName: string; abbr: string }>;
+  onSimulate: (opponentId: string, isUserHome: boolean) => void;
+  onReplay: (matchId: string) => void;
+  phase: string;
+  openedSlotId: string;
+  simulateAndLoad: (slotId: string, seed?: string) => Promise<void>;
+}) {
+  const userTeam = props.teams.find((t) => t.id === props.userTeamId);
+  const userTeamName = userTeam?.schoolName ?? 'Your team';
+  if (props.rows.length === 0) {
+    return (
+      <div className="match-hub__user-team-list" data-testid="user-team-match-list">
+        <p className="match-hub__sub">
+          No matches scheduled for {userTeamName} yet — the schedule
+          auto-generates when you start the regular season from the Hub.
+        </p>
+      </div>
+    );
+  }
+  // Unplayed matches first (the "what to play next" use-case), then a
+  // recent-results section.
+  const unplayed = props.rows.filter((r) => r.winnerId === null);
+  const played = props.rows.filter((r) => r.winnerId !== null).slice(-5).reverse();
+  const isLoading = props.phase === 'simulating' || props.phase === 'loading-replay';
+  return (
+    <div className="match-hub__user-team-list" data-testid="user-team-match-list">
+      <h2 className="match-hub__list-h2">Your matches</h2>
+      {unplayed.length > 0 && (
+        <section className="match-hub__list-section" aria-label="Upcoming matches">
+          <h3 className="match-hub__list-h3">Upcoming</h3>
+          <ul className="match-hub__list">
+            {unplayed.slice(0, 6).map((r) => (
+              <li key={r.matchId} className="match-hub__list-item">
+                <span className="match-hub__list-date">{r.isoDate}</span>
+                <span className="match-hub__list-opp">
+                  {r.isHome ? 'vs' : '@'} {r.opponentSchool}
+                  <span className="match-hub__list-tag">
+                    {' '}
+                    {r.isTournament ? 'TRN' : r.isConference ? 'conf' : 'nc'}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  data-testid={`play-match-${r.matchId}`}
+                  disabled={isLoading}
+                  onClick={() => {
+                    props.onSimulate(r.opponentId, r.isHome);
+                    // Trigger sim after a tick so the home/away set on the store apply.
+                    queueMicrotask(() => {
+                      void props.simulateAndLoad(props.openedSlotId);
+                    });
+                  }}
+                >
+                  {isLoading ? 'Loading…' : 'Play'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {played.length > 0 && (
+        <section className="match-hub__list-section" aria-label="Recent results">
+          <h3 className="match-hub__list-h3">Recent</h3>
+          <ul className="match-hub__list">
+            {played.map((r) => (
+              <li key={r.matchId} className="match-hub__list-item">
+                <span className="match-hub__list-date">{r.isoDate}</span>
+                <span className="match-hub__list-opp">
+                  {r.isHome ? 'vs' : '@'} {r.opponentSchool}
+                  <span className="match-hub__list-tag">
+                    {' '}
+                    {r.winnerId === props.userTeamId ? 'W' : 'L'}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  data-testid={`replay-match-${r.matchId}`}
+                  disabled={isLoading}
+                  onClick={() => props.onReplay(r.matchId)}
+                >
+                  Replay
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Sprint 26 (Tasks 26.2 + 26.6): Coach control panel visible during paused
+ * replay. Lets the user call cosmetic timeouts and substitutions.
+ *
+ * Both controls are REPLAY-ONLY: nothing is persisted to the database, and
+ * match outcomes are not affected. The bench list is read off the lineup
+ * slots: positions 0..5 are on-court starters; we don't yet model the
+ * actual roster bench in the match hub payload, so the "Bench" section
+ * shows a deferred-message in v1.0 and the swap dropdown lists the OTHER
+ * SIDE's slot players as a stand-in for "alternate players to swap in."
+ * v1.1 work: surface a real bench list from `useUserTeamStore` once the
+ * Match Hub is locked to user-team matches per Sprint 27 Task 27.2.
+ */
+function CoachPanel(props: {
+  homeAbbr: string;
+  awayAbbr: string;
+  homeTimeoutsRemaining: number;
+  awayTimeoutsRemaining: number;
+  homeLineup: readonly string[];
+  awayLineup: readonly string[];
+  userSubs: Array<{ side: 'home' | 'away'; slotIndex: number }>;
+  onTimeout: (side: 'home' | 'away') => boolean;
+  onSub: (side: 'home' | 'away', slotIndex: number, incomingPlayerId: string) => boolean;
+}) {
+  return (
+    <section className="match-hub__coach-panel" aria-label="Coach controls (paused)">
+      <h3 className="match-hub__coach-panel-h3">Coach controls</h3>
+      <div className="match-hub__coach-panel-row">
+        <div className="match-hub__timeout-controls" role="group" aria-label="Call timeout">
+          <span className="match-hub__coach-panel-label">Timeouts</span>
+          <button
+            type="button"
+            disabled={props.homeTimeoutsRemaining <= 0}
+            onClick={() => props.onTimeout('home')}
+            data-testid="timeout-home"
+          >
+            {props.homeAbbr} timeout
+            <span className="match-hub__timeout-count" aria-hidden="true">
+              {' '}({props.homeTimeoutsRemaining} left)
+            </span>
+          </button>
+          <button
+            type="button"
+            disabled={props.awayTimeoutsRemaining <= 0}
+            onClick={() => props.onTimeout('away')}
+            data-testid="timeout-away"
+          >
+            {props.awayAbbr} timeout
+            <span className="match-hub__timeout-count" aria-hidden="true">
+              {' '}({props.awayTimeoutsRemaining} left)
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div className="match-hub__lineup-panel" data-testid="lineup-panel">
+        <span className="match-hub__coach-panel-label">Lineup (paused) — slot/position</span>
+        <CoachLineupSide
+          side="home"
+          abbr={props.homeAbbr}
+          lineup={props.homeLineup}
+          userSubs={props.userSubs.filter((s) => s.side === 'home')}
+          onSub={(slot, pid) => props.onSub('home', slot, pid)}
+        />
+        <CoachLineupSide
+          side="away"
+          abbr={props.awayAbbr}
+          lineup={props.awayLineup}
+          userSubs={props.userSubs.filter((s) => s.side === 'away')}
+          onSub={(slot, pid) => props.onSub('away', slot, pid)}
+        />
+        <p className="match-hub__coach-panel-note">
+          Note: timeouts and substitutions during replay are visual only.
+          They do not change the simulated match outcome.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function CoachLineupSide(props: {
+  side: 'home' | 'away';
+  abbr: string;
+  lineup: readonly string[];
+  userSubs: Array<{ slotIndex: number }>;
+  onSub: (slotIndex: number, incomingPlayerId: string) => boolean;
+}) {
+  const LIBERO_SLOT = 5;
+  return (
+    <div className="match-hub__lineup-side" data-testid={`lineup-side-${props.side}`}>
+      <strong>{props.abbr}</strong>
+      <ol className="match-hub__lineup-slots" aria-label={`${props.abbr} on-court slots`}>
+        {props.lineup.map((name, i) => {
+          const swapped = props.userSubs.some((s) => s.slotIndex === i);
+          const isLibero = i === LIBERO_SLOT;
+          return (
+            <li key={i} className="match-hub__lineup-slot">
+              <span className="match-hub__lineup-slot-label">P{i + 1}</span>
+              <span className="match-hub__lineup-slot-name">{name}</span>
+              {isLibero ? (
+                <span className="match-hub__lineup-slot-disabled" title="Libero subs follow special rules — coming in v1.1">
+                  Libero
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="match-hub__lineup-slot-swap"
+                  onClick={() => props.onSub(i, `bench-${props.side}-${i}`)}
+                  data-testid={`sub-${props.side}-${i}`}
+                  aria-label={`Substitute ${props.abbr} P${i + 1} (${name})`}
+                >
+                  {swapped ? 'Swapped' : 'Swap'}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 
@@ -297,8 +611,30 @@ function Scoreboard(props: {
 }) {
   const completedSets = props.setHomeScores.length;
   const maxDuration = Math.max(1, ...props.match.sets.map((s) => s.durationSec));
+  // Sprint 26 (Task 26.1): match-level set tally derived from completed-set
+  // scores. Visible during replay so the user can see "Sets: 2 — 1" macro
+  // state without waiting for the final box score.
+  let matchSetHome = 0;
+  let matchSetAway = 0;
+  for (let i = 0; i < completedSets; i++) {
+    const h = props.setHomeScores[i] ?? 0;
+    const a = props.setAwayScores[i] ?? 0;
+    if (h > a) matchSetHome += 1;
+    else if (a > h) matchSetAway += 1;
+  }
   return (
     <section className="match-hub__scoreboard" aria-label="Scoreboard">
+      <div className="match-hub__sets-tally" aria-label="Match-level set tally" data-testid="sets-tally">
+        <span className="match-hub__sets-tally-label">Sets won</span>
+        <span className="match-hub__sets-tally-score">
+          <strong data-testid="sets-tally-home">{matchSetHome}</strong>
+          <span aria-hidden="true"> — </span>
+          <strong data-testid="sets-tally-away">{matchSetAway}</strong>
+        </span>
+        <span className="match-hub__sets-tally-teams">
+          {props.match.home.teamAbbr} — {props.match.away.teamAbbr}
+        </span>
+      </div>
       <table>
         <caption>Set scores</caption>
         <thead>

@@ -1,4 +1,5 @@
 import { SaveSlots } from './screens/SaveSlots';
+import { SeasonHub } from './screens/SeasonHub';
 import { MatchHub } from './screens/MatchHub';
 import { ScheduleView } from './screens/ScheduleView';
 import { PollView } from './screens/PollView';
@@ -10,6 +11,7 @@ import { PreseasonView } from './screens/PreseasonView';
 import { StaffView } from './screens/StaffView';
 import { AwardsView } from './screens/AwardsView';
 import { AnalyticsView } from './screens/AnalyticsView';
+import { StandingsView } from './screens/StandingsView';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { useEffect } from 'react';
 import { useSaveSlotsStore } from './store/useSaveSlotsStore';
@@ -18,6 +20,7 @@ import { useUserTeamStore } from './store/useUserTeamStore';
 import { useSettingsStore, FONT_SIZES, type FontSize } from './store/useSettingsStore';
 
 const TABS: Array<{ id: ActiveScreen; label: string }> = [
+  { id: 'season-hub', label: 'Hub' },
   { id: 'match-hub', label: 'Match Hub' },
   { id: 'schedule', label: 'Schedule' },
   { id: 'poll', label: 'Poll' },
@@ -29,6 +32,7 @@ const TABS: Array<{ id: ActiveScreen; label: string }> = [
   { id: 'staff', label: 'Staff' },
   { id: 'awards', label: 'Awards' },
   { id: 'analytics', label: 'Analytics' },
+  { id: 'standings', label: 'Standings' },
   { id: 'settings', label: 'Settings' },
 ];
 
@@ -79,6 +83,7 @@ export function App() {
         ))}
         <FontSizePicker fontSize={fontSize} onChange={setFontSize} />
       </nav>
+      {screen === 'season-hub' && <SeasonHub />}
       {screen === 'match-hub' && <MatchHub />}
       {screen === 'schedule' && <ScheduleView />}
       {screen === 'poll' && <PollView />}
@@ -90,6 +95,7 @@ export function App() {
       {screen === 'staff' && <StaffView />}
       {screen === 'awards' && <AwardsView />}
       {screen === 'analytics' && <AnalyticsView />}
+      {screen === 'standings' && <StandingsView />}
       {screen === 'settings' && <SettingsScreen />}
     </main>
   );

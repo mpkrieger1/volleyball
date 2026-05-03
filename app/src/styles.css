@@ -176,6 +176,296 @@ button:hover {
   font: inherit;
   border-radius: 3px;
 }
+/* Sprint 27 (Task 27.5): Standings screen. */
+.standings-view {
+  padding: 16px;
+}
+.standings-view__tabs {
+  display: flex;
+  gap: 4px;
+  margin: 12px 0;
+  border-bottom: 1px solid #2a313a;
+}
+.standings-view__tabs button {
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.standings-view__tabs button[aria-selected='true'] {
+  border-bottom-color: var(--accent);
+  color: var(--fg);
+}
+.standings-view__panel {
+  margin-top: 12px;
+}
+.standings-view__conf {
+  margin-bottom: 16px;
+}
+.standings-view__conf-h2 {
+  margin: 0 0 8px;
+  font-size: var(--fs-h2);
+}
+.standings-view__conf-abbr {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+  margin-left: 6px;
+}
+.standings-view__team-school {
+  color: var(--muted);
+}
+.standings-view__cat-pickers {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.standings-view__cat,
+.standings-view__cat--active {
+  padding: 4px 10px;
+  border: 1px solid #2a313a;
+  background: #14181d;
+  color: var(--muted);
+  cursor: pointer;
+}
+.standings-view__cat--active {
+  border-color: var(--accent);
+  color: var(--fg);
+}
+
+/* Sprint 27 (Task 27.2): Match Hub user-team match list. */
+.match-hub__user-team-list {
+  margin: 12px 0;
+}
+.match-hub__list-h2 {
+  margin: 0 0 12px;
+  font-size: var(--fs-h2);
+}
+.match-hub__list-section {
+  margin: 8px 0;
+}
+.match-hub__list-h3 {
+  margin: 0 0 6px;
+  font-size: var(--fs-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.match-hub__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.match-hub__list-item {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 10px;
+  background: #14181d;
+  border: 1px solid #2a313a;
+  border-radius: 3px;
+}
+.match-hub__list-date {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+}
+.match-hub__list-opp {
+  font-size: var(--fs-base);
+}
+.match-hub__list-tag {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+}
+
+/* Sprint 26 (Task 26.5): Season Hub dashboard — default landing post-pick. */
+.season-hub {
+  padding: 16px;
+}
+.season-hub__header {
+  margin-bottom: 12px;
+}
+.season-hub__header h1 {
+  margin: 0 0 4px;
+  font-size: var(--fs-h1);
+}
+.season-hub__sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-meta);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.season-hub__legacy-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #2a1f14;
+  border: 1px solid #5a3f24;
+  border-radius: 3px;
+  margin-bottom: 12px;
+}
+.season-hub__legacy-cta {
+  margin-left: auto;
+}
+.season-hub__h2 {
+  margin: 16px 0 8px;
+  font-size: var(--fs-h2);
+}
+.season-hub__cards {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+.season-hub__card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  text-align: left;
+  background: #14181d;
+  border: 1px solid #2a313a;
+  border-radius: 3px;
+  cursor: pointer;
+  width: 100%;
+  font: inherit;
+  color: var(--fg);
+}
+.season-hub__card:hover {
+  border-color: var(--accent);
+}
+.season-hub__card-label {
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+.season-hub__card-blurb {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+
+/* Sprint 26 (Tasks 26.2 + 26.6): paused-replay coach controls. */
+.match-hub__coach-panel {
+  margin: 12px 0;
+  padding: 10px 12px;
+  background: #14181d;
+  border: 1px solid #2a313a;
+  border-radius: 3px;
+}
+.match-hub__coach-panel-h3 {
+  margin: 0 0 8px;
+  font-size: var(--fs-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.match-hub__coach-panel-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.match-hub__coach-panel-label {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+.match-hub__timeout-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.match-hub__timeout-count {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+}
+.match-hub__lineup-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.match-hub__lineup-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.match-hub__lineup-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.match-hub__lineup-slot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: #1a1f25;
+  border: 1px solid #2a313a;
+  border-radius: 3px;
+  font-size: var(--fs-meta);
+}
+.match-hub__lineup-slot-label {
+  color: var(--muted);
+}
+.match-hub__lineup-slot-name {
+  color: var(--fg);
+  min-width: 60px;
+}
+.match-hub__lineup-slot-disabled {
+  color: var(--muted);
+  font-style: italic;
+}
+.match-hub__lineup-slot-swap {
+  font-size: var(--fs-meta);
+  padding: 1px 6px;
+}
+.match-hub__coach-panel-note {
+  margin: 6px 0 0;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  font-style: italic;
+}
+
+.match-hub__sets-tally {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  background: #14181d;
+  border: 1px solid #2a313a;
+  border-radius: 3px;
+}
+.match-hub__sets-tally-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.match-hub__sets-tally-score {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.match-hub__sets-tally-score strong {
+  font-weight: 600;
+}
+.match-hub__sets-tally-teams {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: auto;
+}
 .match-hub__error {
   color: #ff6b6b;
   margin: 8px 0;
@@ -705,4 +995,59 @@ button:hover {
 }
 .first-run-modal__dot--active {
   background: var(--accent);
+}
+
+/* Sprint 26 Task 26.4: PlaybookModal — extends FirstRunModal sizing for the
+   5-phase outline. */
+.playbook-modal {
+  width: 640px;
+}
+.playbook-modal__phases {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+.playbook-modal__phase {
+  border-left: 3px solid var(--accent);
+  padding: 8px 12px;
+  margin: 8px 0;
+  background: #14181d;
+}
+.playbook-modal__phase-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.playbook-modal__phase-name {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: 0.04em;
+}
+.playbook-modal__phase-weeks {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.playbook-modal__phase-what {
+  margin: 4px 0;
+  font-size: var(--fs-base);
+  color: var(--fg);
+}
+.playbook-modal__phase-do {
+  margin: 4px 0 0;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+.playbook-modal__phase-do em {
+  color: var(--accent);
+  font-style: normal;
+  font-weight: 600;
+}
+.playbook-modal__footer {
+  margin-top: 16px;
+  font-size: var(--fs-meta);
+  color: var(--muted);
 }

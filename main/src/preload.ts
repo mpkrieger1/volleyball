@@ -14,6 +14,7 @@ import {
   coachingIpc,
   awardsIpc,
   scoutIpc,
+  standingsIpc,
 } from '@vcd/shared';
 
 const api = Object.freeze({
@@ -180,6 +181,10 @@ const api = Object.freeze({
         opponentTeamId,
         throughDate,
       }),
+  },
+  standings: {
+    getOverview: (slotId: string) =>
+      ipcRenderer.invoke(standingsIpc.STANDINGS_IPC_CHANNELS.getOverview, { slotId }),
   },
   crash: {
     report: (payload: {

@@ -23,6 +23,7 @@ export * as pollIpc from './ipc/pollMessages';
 export * as bracket from './bracket';
 export * as bracketIpc from './ipc/bracketMessages';
 export * as standings from './standings';
+export * as standingsIpc from './ipc/standingsMessages';
 export * as tournament from './tournament';
 export * as postseasonIpc from './ipc/postseasonMessages';
 export * as recruiting from './recruiting';

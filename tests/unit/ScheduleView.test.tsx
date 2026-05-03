@@ -72,14 +72,12 @@ describe('<ScheduleView />', () => {
     expect(screen.getByText('2026-09-25')).toBeInTheDocument();
   });
 
-  it('Generate button triggers schedule:generate and shows stats', async () => {
+  it('Sprint 27 Task 27.1: no manual Generate button is rendered', async () => {
     makeVcd();
-    const user = userEvent.setup();
     render(<ScheduleView />);
-    await user.click(await screen.findByRole('button', { name: /generate 2026 schedule/i }));
-    await waitFor(() =>
-      expect(screen.getByText(/100 matches · 80 conf/)).toBeInTheDocument(),
-    );
+    await screen.findByRole('combobox', { name: /select team/i });
+    expect(screen.queryByRole('button', { name: /generate 2026 schedule/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /generate.*schedule/i })).not.toBeInTheDocument();
   });
 
   it('axe-clean', async () => {

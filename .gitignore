@@ -12,6 +12,10 @@ app/dist/
 main/dist/
 workers/dist/
 shared/dist/
+# Sprint 27: app/.tsbuild/ holds Vite-pipeline tsc declaration emissions
+# (Sprint 21 pattern: emitDeclarationOnly + outDir). Tracked in error
+# from earlier sprints; sprint 27 retro flagged for cleanup.
+app/.tsbuild/
 tests/playwright-report/
 tests/test-results/
 

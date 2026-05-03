@@ -13,6 +13,7 @@ import type {
   coachingIpc,
   awardsIpc,
   scoutIpc,
+  standingsIpc,
 } from '@vcd/shared';
 
 declare global {
@@ -192,6 +193,9 @@ declare global {
         opponentTeamId: string,
         throughDate?: string,
       ): Promise<scoutIpc.ScoutReportResponse>;
+    };
+    standings: {
+      getOverview(slotId: string): Promise<standingsIpc.StandingsOverviewResponse>;
     };
     crash: {
       // Sprint 23: report a renderer-side error to the main-process crash log.

@@ -111,6 +111,23 @@ export function SettingsScreen() {
       </div>
 
       <div className="settings-section">
+        <h2>Help</h2>
+        <p className="settings-desc">
+          Sprint 26: re-show the season-rhythm playbook (the dialog that
+          appears on first run after the welcome screens).
+        </p>
+        <div className="settings-row">
+          <button
+            type="button"
+            onClick={() => useSettingsStore.getState().setHasSeenPlaybook(false)}
+            data-testid="show-playbook-again"
+          >
+            Show playbook again
+          </button>
+        </div>
+      </div>
+
+      <div className="settings-section">
         <h2>About</h2>
         <p className="settings-desc">
           VCD <strong>v{VCD_VERSION}</strong> — NCAA Volleyball Coach

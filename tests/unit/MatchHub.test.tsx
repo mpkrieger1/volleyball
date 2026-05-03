@@ -5,6 +5,8 @@ import { axe } from 'jest-axe';
 import { MatchHub } from '../../app/src/screens/MatchHub';
 import { useMatchHubStore } from '../../app/src/store/useMatchHubStore';
 import { useSaveSlotsStore } from '../../app/src/store/useSaveSlotsStore';
+import { useUserTeamStore } from '../../app/src/store/useUserTeamStore';
+import { useScheduleStore } from '../../app/src/store/useScheduleStore';
 import type { matchIpc, sim } from '@vcd/shared';
 
 const makeTeam = (id: string, name: string, abbr: string): matchIpc.TeamSummary => ({
@@ -137,7 +139,11 @@ function setupVcd(over: Partial<{ listTeams: unknown; simulate: unknown; getById
       getById: (over.getById as Window['vcd']['match']['getById']) ??
         vi.fn().mockResolvedValue(makeMatchPayload()),
     },
-    schedule: {} as Window['vcd']['schedule'],
+    schedule: {
+      listForTeam: vi.fn().mockResolvedValue({ ok: true, rows: [] }),
+      listTeams: vi.fn().mockResolvedValue({ ok: true, teams: [] }),
+      generate: vi.fn().mockResolvedValue({ ok: true, stats: { totalMatches: 0, confMatches: 0, nonConfMatches: 0, tournamentMatches: 0 } }),
+    } as unknown as Window['vcd']['schedule'],
     season: {} as Window['vcd']['season'],
     poll: {} as Window['vcd']['poll'],
     bracket: {} as Window['vcd']['bracket'],
@@ -159,6 +165,17 @@ beforeEach(() => {
   useMatchHubStore.getState().reset();
   useMatchHubStore.setState({ teams: [] });
   useSaveSlotsStore.setState({ slots: [], status: 'idle', error: null, openedSlotId: 'slot-1' });
+  // Sprint 27 Task 27.2: reset user-team + schedule stores to keep tests
+  // isolated; default to userTeamId=null so legacy dual-picker tests work.
+  useUserTeamStore.setState({ userTeamId: null, status: 'idle', error: null });
+  useScheduleStore.setState({
+    teams: [],
+    selectedTeamId: null,
+    rows: [],
+    status: 'idle',
+    error: null,
+    stats: null,
+  });
 });
 
 describe('<MatchHub />', () => {
@@ -221,6 +238,183 @@ describe('<MatchHub />', () => {
     await waitFor(() => expect(screen.getByLabelText(/scout report/i)).toBeInTheDocument());
     const results = await axe(container);
     expect(results.violations).toEqual([]);
+  });
+
+  it('Sprint 26 Task 26.1: Scoreboard shows match-level sets-won tally derived from completed sets', async () => {
+    setupVcd();
+    const user = userEvent.setup();
+    render(<MatchHub />);
+    await screen.findByRole('combobox', { name: /home team/i });
+    await user.selectOptions(screen.getByRole('combobox', { name: /home team/i }), 't-1');
+    await user.selectOptions(screen.getByRole('combobox', { name: /away team/i }), 't-2');
+    await waitFor(() => expect(screen.getByLabelText(/scout report/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /play match/i }));
+    await waitFor(() => screen.getByTestId('sets-tally'));
+    // No completed sets yet → tally is 0 — 0.
+    expect(screen.getByTestId('sets-tally-home')).toHaveTextContent('0');
+    expect(screen.getByTestId('sets-tally-away')).toHaveTextContent('0');
+
+    // Simulate set-break entries: home wins set 1, away wins set 2.
+    useMatchHubStore.setState({
+      setHomeScores: [25, 18],
+      setAwayScores: [22, 25],
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('sets-tally-home')).toHaveTextContent('1');
+      expect(screen.getByTestId('sets-tally-away')).toHaveTextContent('1');
+    });
+
+    // Home wins set 3 → 2 — 1.
+    useMatchHubStore.setState({
+      setHomeScores: [25, 18, 25],
+      setAwayScores: [22, 25, 20],
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('sets-tally-home')).toHaveTextContent('2');
+      expect(screen.getByTestId('sets-tally-away')).toHaveTextContent('1');
+    });
+  });
+
+  it('Sprint 26 Task 26.2: paused replay shows user timeout buttons; clicking decrements counter + shows banner', async () => {
+    setupVcd();
+    const user = userEvent.setup();
+    render(<MatchHub />);
+    await screen.findByRole('combobox', { name: /home team/i });
+    await user.selectOptions(screen.getByRole('combobox', { name: /home team/i }), 't-1');
+    await user.selectOptions(screen.getByRole('combobox', { name: /away team/i }), 't-2');
+    await waitFor(() => expect(screen.getByLabelText(/scout report/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /play match/i }));
+    // Force into paused state for the panel to appear (in production the
+    // user would click Pause; the store reacts to that).
+    await waitFor(() => screen.getByTestId('play-toggle'));
+    useMatchHubStore.setState({ phase: 'paused' });
+    await waitFor(() => screen.getByTestId('timeout-home'));
+    const homeBtn = screen.getByTestId('timeout-home');
+    expect(homeBtn).toHaveTextContent('ALPH timeout');
+    expect(homeBtn).toHaveTextContent('10 left');
+
+    fireEvent.click(homeBtn);
+    expect(useMatchHubStore.getState().homeTimeoutsRemaining).toBe(9);
+    expect(useMatchHubStore.getState().banner?.text).toContain('TIMEOUT (coach)');
+  });
+
+  it('Sprint 26 Task 26.2: timeout button is disabled when 0 remaining', async () => {
+    setupVcd();
+    const user = userEvent.setup();
+    render(<MatchHub />);
+    await screen.findByRole('combobox', { name: /home team/i });
+    await user.selectOptions(screen.getByRole('combobox', { name: /home team/i }), 't-1');
+    await user.selectOptions(screen.getByRole('combobox', { name: /away team/i }), 't-2');
+    await waitFor(() => expect(screen.getByLabelText(/scout report/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /play match/i }));
+    await waitFor(() => screen.getByTestId('play-toggle'));
+    useMatchHubStore.setState({ phase: 'paused', homeTimeoutsRemaining: 0 });
+    await waitFor(() => screen.getByTestId('timeout-home'));
+    expect(screen.getByTestId('timeout-home')).toBeDisabled();
+  });
+
+  it('Sprint 26 Task 26.6: paused replay shows lineup with Swap buttons; libero slot shows Libero label not Swap', async () => {
+    setupVcd();
+    const user = userEvent.setup();
+    render(<MatchHub />);
+    await screen.findByRole('combobox', { name: /home team/i });
+    await user.selectOptions(screen.getByRole('combobox', { name: /home team/i }), 't-1');
+    await user.selectOptions(screen.getByRole('combobox', { name: /away team/i }), 't-2');
+    await waitFor(() => expect(screen.getByLabelText(/scout report/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /play match/i }));
+    await waitFor(() => screen.getByTestId('play-toggle'));
+    useMatchHubStore.setState({ phase: 'paused' });
+    await waitFor(() => screen.getByTestId('lineup-panel'));
+    // Slots 0..4 have a Swap button; slot 5 (libero) does not.
+    expect(screen.getByTestId('sub-home-0')).toBeInTheDocument();
+    expect(screen.getByTestId('sub-home-4')).toBeInTheDocument();
+    expect(screen.queryByTestId('sub-home-5')).not.toBeInTheDocument();
+
+    // Click Swap on slot 0 → injectUserSub called → userSubs has the entry.
+    fireEvent.click(screen.getByTestId('sub-home-0'));
+    expect(useMatchHubStore.getState().userSubs).toHaveLength(1);
+    expect(useMatchHubStore.getState().userSubs[0]?.slotIndex).toBe(0);
+    expect(useMatchHubStore.getState().banner?.text).toContain('SUB (coach)');
+  });
+
+  it('Sprint 26 store: injectUserTimeout returns false when not paused', () => {
+    useMatchHubStore.setState({
+      phase: 'playing',
+      homeTimeoutsRemaining: 5,
+      match: makeMatchPayload(),
+    });
+    const result = useMatchHubStore.getState().injectUserTimeout('home');
+    expect(result).toBe(false);
+    expect(useMatchHubStore.getState().homeTimeoutsRemaining).toBe(5);
+  });
+
+  it('Sprint 26 store: injectUserSub rejects libero slot', () => {
+    useMatchHubStore.setState({
+      phase: 'paused',
+      match: makeMatchPayload(),
+      userSubs: [],
+    });
+    const result = useMatchHubStore.getState().injectUserSub('home', 5, 'p99');
+    expect(result).toBe(false);
+    expect(useMatchHubStore.getState().userSubs).toHaveLength(0);
+  });
+
+  it('Sprint 27 Task 27.2: when userTeamId is set, dual-team picker is hidden + match list is shown', async () => {
+    setupVcd();
+    useUserTeamStore.setState({ userTeamId: 't-1', status: 'ready', error: null });
+    useScheduleStore.setState({
+      teams: [],
+      selectedTeamId: 't-1',
+      rows: [
+        {
+          matchId: 'm-up-1',
+          weekIndex: 1,
+          isoDate: '2026-09-04',
+          opponentId: 't-2',
+          opponentSchool: 'Beta',
+          opponentAbbr: 'BETA',
+          isHome: true,
+          isConference: false,
+          isTournament: false,
+          isNeutralSite: false,
+          winnerId: null,
+        },
+        {
+          matchId: 'm-played-1',
+          weekIndex: 0,
+          isoDate: '2026-08-30',
+          opponentId: 't-2',
+          opponentSchool: 'Beta',
+          opponentAbbr: 'BETA',
+          isHome: false,
+          isConference: false,
+          isTournament: false,
+          isNeutralSite: false,
+          winnerId: 't-1',
+        },
+      ],
+      status: 'ready',
+      error: null,
+      stats: null,
+    });
+    render(<MatchHub />);
+    await waitFor(() => screen.getByTestId('user-team-match-list'));
+    // Dual-picker is hidden; the legacy banner is not present.
+    expect(screen.queryByTestId('legacy-picker-banner')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /home team/i })).not.toBeInTheDocument();
+    // Upcoming match has a Play CTA; played match has a Replay CTA.
+    expect(screen.getByTestId('play-match-m-up-1')).toBeInTheDocument();
+    expect(screen.getByTestId('replay-match-m-played-1')).toBeInTheDocument();
+  });
+
+  it('Sprint 27 Task 27.2: legacy save (userTeamId=null) shows the dual picker fallback', async () => {
+    setupVcd();
+    useUserTeamStore.setState({ userTeamId: null, status: 'ready', error: null });
+    render(<MatchHub />);
+    await waitFor(() => screen.getByTestId('legacy-picker-banner'));
+    expect(screen.getByTestId('legacy-picker-banner')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /home team/i })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /away team/i })).toBeInTheDocument();
   });
 
   it('shows error alert when listTeams fails', async () => {

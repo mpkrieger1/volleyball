@@ -15,6 +15,28 @@ export function registerBracketHandlers(deps: SaveSlotServiceDeps): void {
           error: { code: 'NOT_FOUND' as const, message: `slot ${req.slotId} not found` },
         };
       }
+      // Sprint 27 (Task 27.3): bracket creation MUST NOT happen during
+      // PRESEASON or REGULAR. Bracket entries materialize at the
+      // REGULAR → CONF_TOURNEY transition (via startNcaaTournament after
+      // CT_F finals). Guard the IPC so a renderer or external caller
+      // can't seed the bracket too early. The renderer never calls this
+      // path in production; the IPC remains exposed only for tests +
+      // future tooling.
+      const phaseGuardClient = new PrismaClient({ datasources: { db: { url: `file:${dbPath}` } } });
+      try {
+        const season = await phaseGuardClient.season.findFirst({ orderBy: { year: 'desc' } });
+        if (season && (season.phase === 'PRESEASON' || season.phase === 'REGULAR')) {
+          return {
+            ok: false as const,
+            error: {
+              code: 'INTERNAL' as const,
+              message: `Bracket cannot be generated during ${season.phase}. Bracket materializes at REGULAR → CONF_TOURNEY transition.`,
+            },
+          };
+        }
+      } finally {
+        await phaseGuardClient.$disconnect();
+      }
       const result = await generateAndPersistBracket({
         dbPath,
         seasonYear: req.seasonYear,

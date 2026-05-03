@@ -8,7 +8,10 @@ export function ScheduleView() {
   const { teams, selectedTeamId, rows, status, error, stats } = useScheduleStore();
   const loadTeams = useScheduleStore((s) => s.loadTeams);
   const selectTeam = useScheduleStore((s) => s.selectTeam);
-  const generate = useScheduleStore((s) => s.generate);
+  // Sprint 27 (Task 27.1): manual schedule generation removed; the schedule
+  // auto-generates at offseason→preseason→regular transition. The
+  // `useScheduleStore.generate` action remains in the store for tests +
+  // back-compat, but is no longer reachable from the UI.
 
   useEffect(() => {
     if (openedSlotId) void loadTeams(openedSlotId);
@@ -24,7 +27,7 @@ export function ScheduleView() {
         <p className="match-hub__sub">
           {stats
             ? `${stats.totalMatches} matches · ${stats.confMatches} conf · ${stats.nonConfMatches} non-conf · ${stats.tournamentMatches} tournament`
-            : 'Generate a 2026 schedule, then pick a team.'}
+            : 'Pick a team to view their schedule.'}
         </p>
       </header>
 
@@ -46,13 +49,6 @@ export function ScheduleView() {
             ))}
           </select>
         </label>
-        <button
-          type="button"
-          onClick={() => void generate(openedSlotId, `user-${Date.now()}`)}
-          disabled={status === 'generating'}
-        >
-          {status === 'generating' ? 'Generating…' : 'Generate 2026 schedule'}
-        </button>
       </div>
 
       {error && (
@@ -62,7 +58,10 @@ export function ScheduleView() {
       )}
 
       {selectedTeamId && rows.length === 0 && status === 'ready' && (
-        <p className="save-slots__empty">No matches scheduled. Click the Generate button.</p>
+        <p className="save-slots__empty">
+          No matches scheduled yet — the schedule auto-generates when you
+          start the regular season from the Hub.
+        </p>
       )}
 
       {rows.length > 0 && (
