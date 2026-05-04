@@ -26,6 +26,17 @@ body.fs-lg { --fs-scale: 1.15; }
   box-sizing: border-box;
 }
 
+/* Sprint 28: native dropdown <option> elements ignore most parent
+   styling on Windows/Chromium and render with the OS theme — that
+   produced light-grey text on a white bg in our dark UI. Force black
+   text on white so every <select>'s open-list is readable. The closed
+   control uses each screen's own dark styling (.match-hub__pickers
+   select, .schedule-view__controls select, etc.) and is unaffected. */
+option {
+  color: #000;
+  background-color: #fff;
+}
+
 html,
 body,
 #root {
@@ -204,6 +215,39 @@ button:hover {
 .standings-view__conf {
   margin-bottom: 16px;
 }
+/* Sprint 28: single-conference view with picker. */
+.standings-view__conf-picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 16px;
+  flex-wrap: wrap;
+}
+.standings-view__conf-picker label {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.standings-view__conf-picker select {
+  background: #14181d;
+  color: var(--fg);
+  border: 1px solid #2a313a;
+  padding: 6px 10px;
+  font: inherit;
+  border-radius: 3px;
+  min-width: 280px;
+}
+.standings-view__conf-jump {
+  font-size: var(--fs-meta);
+  padding: 4px 10px;
+}
+.standings-view__user-team-row {
+  background: rgba(255, 107, 44, 0.08);
+}
+.standings-view__user-team-row td {
+  border-color: var(--accent);
+}
 .standings-view__conf-h2 {
   margin: 0 0 8px;
   font-size: var(--fs-h2);
@@ -232,6 +276,36 @@ button:hover {
 .standings-view__cat--active {
   border-color: var(--accent);
   color: var(--fg);
+}
+/* Sprint 28: stat-leaders scope filter (Conference / National). */
+.standings-view__scope-pickers {
+  display: inline-flex;
+  margin: 0 0 8px 0;
+  border: 1px solid #2a313a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.standings-view__scope,
+.standings-view__scope--active {
+  padding: 4px 14px;
+  background: #14181d;
+  color: var(--muted);
+  border: none;
+  border-right: 1px solid #2a313a;
+  cursor: pointer;
+  font: inherit;
+}
+.standings-view__scope:last-child,
+.standings-view__scope--active:last-child {
+  border-right: none;
+}
+.standings-view__scope--active {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.standings-view__scope:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Sprint 27 (Task 27.2): Match Hub user-team match list. */
@@ -522,6 +596,436 @@ button:hover {
   border-top: 1px solid #2a313a;
 }
 
+/* Sprint 28: team-strip header — sits above the primary nav, shows the
+   user's team + season state + Save & Exit. */
+.app-team-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 16px;
+  background: #0f1318;
+  border-bottom: 1px solid #2a313a;
+  flex-wrap: wrap;
+}
+.app-team-strip__team {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.app-team-strip__color-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.app-team-strip__abbr {
+  font-size: var(--fs-base);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.app-team-strip__school {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+}
+.app-team-strip__no-team {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+  font-style: italic;
+}
+.app-team-strip__meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+.app-team-strip__phase {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.app-team-strip__save strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+.app-team-strip__exit {
+  padding: 4px 12px;
+  background: #2a1f14;
+  border: 1px solid #5a3f24;
+  color: var(--fg);
+  cursor: pointer;
+  border-radius: 3px;
+  font: inherit;
+}
+.app-team-strip__exit:hover {
+  background: #3a2820;
+}
+
+/* Sprint 28: Staff (coaching) screen — shadcn-style table treatment +
+   role pills + dialog. */
+.staff-view {
+  padding: 16px;
+}
+.staff-view__h2 {
+  margin: 16px 0 8px;
+  font-size: var(--fs-h2);
+}
+.staff-view__role-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.staff-view__role-pill--hc {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.staff-view__role-pill--ahc {
+  background: rgba(110, 224, 123, 0.12);
+  border: 1px solid #4f9c5e;
+  color: #6ee07b;
+}
+.staff-view__role-pill--ac {
+  background: #1a1f25;
+  border: 1px solid #2a313a;
+  color: var(--muted);
+}
+.staff-view__role-label {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: var(--fs-meta);
+}
+.staff-view__first-name {
+  color: var(--muted);
+  margin-left: 6px;
+  font-weight: 400;
+}
+.staff-view__danger-btn {
+  background: #2a1414;
+  border-color: #5a2a2a;
+  color: #ff7b7b;
+}
+.staff-view__danger-btn:hover:not(:disabled) {
+  background: #3a1c1c;
+}
+.staff-view__primary-btn {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 700;
+}
+.staff-view__primary-btn:hover:not(:disabled) {
+  background: #ff8a4d;
+}
+
+/* Hire dialog. */
+.staff-view__dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.staff-view__dialog {
+  background: var(--bg);
+  border: 1px solid #2a313a;
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 480px;
+  width: calc(100% - 32px);
+}
+.staff-view__dialog h3 {
+  margin: 0 0 4px;
+  font-size: var(--fs-h2);
+}
+.staff-view__dialog-sub {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: var(--fs-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.staff-view__dialog-vitals {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  margin: 0 0 16px;
+  border: 1px solid #2a313a;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.staff-view__dialog-vitals > div {
+  padding: 10px 12px;
+  border-right: 1px solid #1d232b;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #14181d;
+}
+.staff-view__dialog-vitals > div:last-child {
+  border-right: 0;
+}
+.staff-view__dialog-vitals dt {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+.staff-view__dialog-vitals dd {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.staff-view__dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.staff-view__dialog-field span {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.staff-view__dialog-field input {
+  background: #14181d;
+  color: var(--fg);
+  border: 1px solid #2a313a;
+  padding: 6px 10px;
+  font: inherit;
+  border-radius: 3px;
+  width: 100px;
+}
+.staff-view__dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Sprint 28: Offseason / Preseason panel mounted on the Hub. */
+.offseason-panel {
+  margin: 16px 0;
+  padding: 14px 16px;
+  background: #14181d;
+  border: 1px solid #2a313a;
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+}
+.offseason-panel__header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.offseason-panel__h2 {
+  margin: 0;
+  font-size: var(--fs-h2);
+}
+.offseason-panel__year {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.offseason-panel__cta {
+  margin-left: auto;
+}
+.offseason-panel__primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 700;
+  padding: 6px 16px;
+}
+.offseason-panel__primary:hover:not(:disabled) {
+  background: #ff8a4d;
+}
+.offseason-panel__table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid #2a313a;
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: var(--fs-table);
+  margin-top: 8px;
+}
+.offseason-panel__table th,
+.offseason-panel__table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #1d232b;
+  text-align: left;
+}
+.offseason-panel__table tbody tr:last-child td {
+  border-bottom: none;
+}
+.offseason-panel__table thead th {
+  background: #0f1318;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+}
+.offseason-panel__table .t-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.offseason-panel__first {
+  color: var(--muted);
+  margin-left: 6px;
+  font-weight: 400;
+}
+
+/* Sprint 28: Depth Chart screen. */
+.depth-chart-view {
+  padding: 16px;
+}
+.depth-chart-view__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.depth-chart-view__group {
+  background: #14181d;
+  border: 1px solid #2a313a;
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+.depth-chart-view__group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2a313a;
+}
+.depth-chart-view__group-header h2 {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 700;
+}
+.depth-chart-view__pos-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-radius: 10px;
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.depth-chart-view__auto-btn {
+  margin-left: auto;
+  padding: 2px 10px;
+  font-size: var(--fs-meta);
+}
+.depth-chart-view__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.depth-chart-view__item {
+  display: grid;
+  grid-template-columns: 40px 40px 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  background: #1a1f25;
+  border: 1px solid #2a313a;
+  border-radius: 4px;
+}
+.depth-chart-view__item--starter {
+  background: rgba(255, 107, 44, 0.08);
+  border-color: var(--accent);
+}
+.depth-chart-view__rank {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.depth-chart-view__item--starter .depth-chart-view__rank {
+  color: var(--accent);
+  font-weight: 700;
+}
+.depth-chart-view__jersey {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-meta);
+}
+.depth-chart-view__name {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.depth-chart-view__first {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+}
+.depth-chart-view__meta {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+}
+.depth-chart-view__controls {
+  display: flex;
+  gap: 4px;
+}
+.depth-chart-view__controls button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Sprint 28: secondary horizontal sub-nav. Shown below the main nav
+   whenever the active screen belongs to a group (e.g. Team). All
+   sibling tabs are visible. */
+.app-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px 16px;
+  background: #0c0f13;
+  border-bottom: 1px solid #2a313a;
+}
+.app-subnav__btn,
+.app-subnav__btn--active {
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  padding: 4px 10px;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fs-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.app-subnav__btn:hover {
+  background: #1a1f25;
+  color: var(--fg);
+}
+.app-subnav__btn--active {
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 700;
+}
+
 .app-nav {
   display: flex;
   gap: 4px;
@@ -567,25 +1071,159 @@ button:hover {
   font: inherit;
   border-radius: 3px;
 }
-.schedule-view__table {
+/* Sprint 28: shadcn-inspired unified table treatment used by Schedule,
+   Standings (conference + RPI), Stat Leaders, and Roster. Dark theme;
+   tight density; muted header; zebra-free with subtle dividers; numeric
+   cells right-aligned via `.t-num`. */
+.schedule-view__table,
+.standings-view table,
+.roster-view__table,
+.staff-view__table {
   width: 100%;
-  border-collapse: collapse;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--fs-table);
+  border: 1px solid #2a313a;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #14181d;
+  margin-bottom: 16px;
 }
 .schedule-view__table th,
-.schedule-view__table td {
-  padding: 4px 10px;
-  border-bottom: 1px solid #1d232b;
+.schedule-view__table td,
+.standings-view table th,
+.standings-view table td,
+.roster-view__table th,
+.roster-view__table td,
+.staff-view__table th,
+.staff-view__table td {
+  padding: 8px 12px;
   text-align: left;
+  border-bottom: 1px solid #1d232b;
+  vertical-align: middle;
 }
-.schedule-view__table thead th {
+.schedule-view__table tbody tr:last-child td,
+.standings-view table tbody tr:last-child td,
+.roster-view__table tbody tr:last-child td,
+.staff-view__table tbody tr:last-child td {
+  border-bottom: none;
+}
+.schedule-view__table thead th,
+.standings-view table thead th,
+.roster-view__table thead th,
+.staff-view__table thead th {
   color: var(--muted);
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-size: 10px;
+  font-size: var(--fs-meta);
+  background: #0f1318;
   border-bottom: 1px solid #2a313a;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.schedule-view__table tbody tr:hover,
+.standings-view table tbody tr:hover,
+.roster-view__table tbody tr:hover,
+.staff-view__table tbody tr:hover {
+  background: #1a1f25;
+}
+.schedule-view__table .t-num,
+.standings-view table .t-num,
+.roster-view__table .t-num,
+.staff-view__table .t-num,
+.standings-view table th.t-num,
+.roster-view__table th.t-num,
+.staff-view__table th.t-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+/* Roster-specific cell styling. */
+.roster-view__first-name {
+  color: var(--muted);
+  margin-left: 6px;
+  font-weight: 400;
+}
+.roster-view__pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: #1a1f25;
+  border: 1px solid #2a313a;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+.roster-view__pill--libero {
+  background: rgba(255, 107, 44, 0.12);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.roster-view__pill--captain {
+  background: rgba(110, 224, 123, 0.1);
+  border-color: #4f9c5e;
+  color: #6ee07b;
+}
+.roster-view__pill--redshirt {
+  background: rgba(255, 200, 60, 0.08);
+  border-color: #806027;
+  color: #ffc83c;
+}
+.roster-view__row {
+  cursor: pointer;
+}
+.roster-view__sort-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+/* Right-align trailing numeric cells in tables that don't yet add
+   `.t-num` but should display digits monospace-ish. We use the column
+   selector `:nth-last-child(-n+1)` for the last column where appropriate
+   on a per-screen basis below. */
+.schedule-view__table tbody tr.schedule-view__row--played {
+  background: rgba(255, 255, 255, 0.02);
+}
+/* Schedule result column. */
+.schedule-view__opp-school {
+  color: var(--muted);
+  margin-left: 4px;
+}
+.schedule-view__result-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 2px 8px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.schedule-view__result-btn:hover {
+  border-color: var(--accent);
+}
+.schedule-view__result-btn--win {
+  color: #6ee07b;
+}
+.schedule-view__result-btn--loss {
+  color: #ff7b7b;
+}
+.schedule-view__result-text {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.schedule-view__result-text--win {
+  color: #6ee07b;
+}
+.schedule-view__result-text--loss {
+  color: #ff7b7b;
+}
+.schedule-view__result-pending {
+  color: var(--muted);
 }
 
 .season-panel {
@@ -1050,4 +1688,1106 @@ button:hover {
   margin-top: 16px;
   font-size: var(--fs-meta);
   color: var(--muted);
+}
+
+/* Sprint 28: Roster screen */
+.roster-view__table tbody tr {
+  cursor: pointer;
+}
+.roster-view__row:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.roster-view__row:hover {
+  background: var(--row-hover, rgba(255, 255, 255, 0.04));
+}
+.roster-view__sort-btn {
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+/* Sprint 28: Player profile modal */
+.player-profile-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.player-profile-modal {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid #2a313a;
+  border-radius: 8px;
+  padding: 0;
+  max-width: 820px;
+  width: calc(100% - 32px);
+  max-height: 92vh;
+  overflow-y: auto;
+  position: relative;
+}
+/* Sprint 28 redesign — hero band with team-color accent. */
+.player-profile-modal__hero {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 28px 32px 20px;
+  background: linear-gradient(135deg, #14181d 0%, #0f1318 100%);
+  border-bottom: 3px solid var(--accent);
+}
+.player-profile-modal__jersey {
+  font-size: 96px;
+  font-weight: 800;
+  line-height: 0.85;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  padding-right: 16px;
+  border-right: 1px solid #2a313a;
+}
+.player-profile-modal__hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.player-profile-modal__team-chip {
+  margin: 0;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+.player-profile-modal__name {
+  margin: 0;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+.player-profile-modal__hero-sub {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: var(--fs-base);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+/* Vitals strip. */
+.player-profile-modal__vitals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid #2a313a;
+}
+.player-profile-modal__vitals > div {
+  padding: 14px 16px;
+  border-right: 1px solid #1d232b;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.player-profile-modal__vitals > div:last-child {
+  border-right: 0;
+}
+.player-profile-modal__vitals dt {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  margin: 0;
+}
+.player-profile-modal__vitals dd {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+/* Big OVR / POT cards. */
+.player-profile-modal__numbers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 16px 32px;
+}
+.player-profile-modal__number-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 12px;
+  background: #14181d;
+  border: 1px solid #2a313a;
+  border-radius: 6px;
+}
+.player-profile-modal__number-label {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.player-profile-modal__number-value {
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+.player-profile-modal__h3 {
+  font-size: var(--fs-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 12px 32px 8px;
+  font-weight: 700;
+}
+/* Ratings grid with bars. */
+.player-profile-modal__ratings-grid {
+  list-style: none;
+  padding: 0 32px 24px;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px 16px;
+}
+.player-profile-modal__rating-item {
+  display: grid;
+  grid-template-columns: 90px 32px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.player-profile-modal__rating-label {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+}
+.player-profile-modal__rating-value {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.player-profile-modal__rating-bar {
+  display: block;
+  height: 6px;
+  background: #1d232b;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.player-profile-modal__rating-bar-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent) 0%, #ff8a4d 100%);
+  border-radius: 3px;
+}
+.player-profile-modal__stats {
+  margin: 0 32px 16px;
+  width: calc(100% - 64px);
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid #2a313a;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #14181d;
+}
+.player-profile-modal__stats th,
+.player-profile-modal__stats td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #1d232b;
+  font-size: var(--fs-table);
+}
+.player-profile-modal__stats tbody tr:last-child td,
+.player-profile-modal__stats tbody tr:last-child th {
+  border-bottom: 0;
+}
+.player-profile-modal__stats thead th {
+  background: #0f1318;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  text-align: left;
+}
+.player-profile-modal__stats .t-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.player-profile-modal:focus {
+  outline: none;
+}
+.player-profile-modal__header {
+  margin-bottom: 16px;
+  position: relative;
+}
+.player-profile-modal__close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: none;
+  border: 0;
+  color: var(--fg);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 10px;
+}
+.player-profile-modal__close:hover,
+.player-profile-modal__close:focus {
+  background: var(--row-hover, rgba(255, 255, 255, 0.08));
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.player-profile-modal__sub {
+  color: var(--muted);
+  margin: 4px 0 0;
+}
+.player-profile-modal__overall {
+  display: flex;
+  gap: 24px;
+  margin: 0;
+}
+.player-profile-modal__overall div {
+  display: flex;
+  flex-direction: column;
+}
+.player-profile-modal__overall dt {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+.player-profile-modal__overall dd {
+  margin: 0;
+  font-size: var(--fs-h2);
+  font-weight: 600;
+}
+.player-profile-modal__ratings,
+.player-profile-modal__stats {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 16px;
+}
+.player-profile-modal__ratings th,
+.player-profile-modal__ratings td,
+.player-profile-modal__stats th,
+.player-profile-modal__stats td {
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.player-profile-modal__ratings td {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sprint 28 Task 28.5B: Recruiting redesign */
+.recruiting-header {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--panel, rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 12px 0 16px;
+}
+.recruiting-header__cap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 120px;
+}
+.recruiting-header__cap-label {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.recruiting-header__cap-value {
+  font-size: var(--fs-h2);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.recruiting-header__cap-of {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  font-weight: 400;
+}
+.recruiting-header__breakdown {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+
+.recruiting-board__tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+.recruiting-board__tab {
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 8px 16px;
+  font: inherit;
+}
+.recruiting-board__tab:hover,
+.recruiting-board__tab:focus-visible {
+  color: var(--fg);
+  outline: none;
+  background: var(--row-hover, rgba(255, 255, 255, 0.04));
+}
+.recruiting-board__tab--active {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+.recruiting-board__row {
+  cursor: pointer;
+}
+.recruiting-board__row:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.recruiting-board__row:hover {
+  background: var(--row-hover, rgba(255, 255, 255, 0.04));
+}
+.recruiting-board__home {
+  color: var(--muted);
+  font-weight: 400;
+}
+.recruiting-board__pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: var(--fs-meta);
+  background: rgba(255, 255, 255, 0.06);
+}
+.recruiting-board__pill--target { background: var(--accent-soft, rgba(80, 140, 220, 0.18)); color: var(--accent); }
+.recruiting-board__pill--commit { background: rgba(80, 200, 80, 0.18); color: #6ec96e; }
+.recruiting-board__pill--lost { background: rgba(200, 80, 80, 0.18); color: #d77; }
+
+/* Detail modal */
+.recruit-detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.recruit-detail-modal {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0;
+  max-width: 760px;
+  width: calc(100% - 32px);
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.recruit-detail-modal:focus { outline: none; }
+.recruit-detail-modal__header {
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.recruit-detail-modal__stars {
+  margin-left: 12px;
+  color: #f5c243;
+  font-size: var(--fs-base);
+}
+.recruit-detail-modal__sub {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+.recruit-detail-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: 0;
+  color: var(--fg);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 12px;
+}
+.recruit-detail-modal__close:hover,
+.recruit-detail-modal__close:focus {
+  background: var(--row-hover, rgba(255, 255, 255, 0.08));
+  outline: 2px solid var(--accent);
+}
+.recruit-detail-modal__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+}
+.recruit-detail-modal__tab {
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 8px 16px;
+  font: inherit;
+}
+.recruit-detail-modal__tab--active {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.recruit-detail-modal__panel {
+  padding: 16px 24px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 200px;
+}
+.recruit-detail-modal__footer {
+  padding: 12px 24px;
+  border-top: 1px solid var(--border);
+}
+.recruit-detail-modal__budget { margin: 0 0 8px; font-size: var(--fs-meta); }
+.recruit-detail-modal__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.recruit-detail-modal__action {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel, rgba(255, 255, 255, 0.04));
+  color: var(--fg);
+  cursor: pointer;
+  font: inherit;
+}
+.recruit-detail-modal__action:hover:not(:disabled) {
+  background: var(--accent-soft, rgba(80, 140, 220, 0.18));
+}
+.recruit-detail-modal__action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Interest meter */
+.interest-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.interest-meter__row {
+  display: grid;
+  grid-template-columns: 30px 60px 1fr 140px;
+  align-items: center;
+  gap: 12px;
+}
+.interest-meter__row--user {
+  background: var(--accent-soft, rgba(80, 140, 220, 0.12));
+  padding: 4px;
+  border-radius: 4px;
+}
+.interest-meter__rank { color: var(--muted); font-variant-numeric: tabular-nums; }
+.interest-meter__team { font-weight: 600; }
+.interest-meter__bar {
+  height: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+.interest-meter__fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 6px;
+}
+.interest-meter__points { font-variant-numeric: tabular-nums; font-size: var(--fs-meta); }
+.interest-meter__leader { color: #6ec96e; font-weight: 600; }
+.interest-meter__delta { color: var(--muted); }
+.interest-meter__empty { color: var(--muted); }
+
+/* Scout report */
+.scout-report__sub { margin: 0 0 12px; color: var(--muted); }
+.scout-report__table { width: 100%; border-collapse: collapse; }
+.scout-report__table th,
+.scout-report__table td {
+  padding: 6px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.scout-report__grade {
+  font-weight: 700;
+  font-size: var(--fs-h2);
+}
+.scout-report__grade--A { color: #6ec96e; }
+.scout-report__grade--B { color: #94d3a2; }
+.scout-report__grade--C { color: #f5c243; }
+.scout-report__grade--D { color: #e89d54; }
+.scout-report__grade--F { color: #d77; }
+.scout-report__grade--\? { color: var(--muted); }
+
+/* ─────────────────────────────────────────────────────────────
+   ShadCN-style UI primitives (Sprint 28)
+   Plain CSS port of the visual conventions from shadcn/ui:
+   refined borders, focus rings, tabular numerics, hover states.
+   ───────────────────────────────────────────────────────────── */
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel, rgba(255, 255, 255, 0.04));
+  color: var(--fg);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.ui-btn:hover:not(:disabled) {
+  background: var(--row-hover, rgba(255, 255, 255, 0.08));
+}
+.ui-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.ui-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.ui-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.ui-btn--primary:hover:not(:disabled) {
+  background: var(--accent-strong, var(--accent));
+  filter: brightness(1.1);
+}
+
+.ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 130px;
+}
+.ui-label {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ui-select {
+  height: 36px;
+  padding: 0 32px 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel, rgba(255, 255, 255, 0.04));
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+.ui-select:hover {
+  border-color: var(--accent);
+}
+.ui-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ui-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: var(--fs-base);
+  user-select: none;
+  align-self: end;
+  height: 36px;
+}
+.ui-checkbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin: 0;
+}
+
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.06);
+  white-space: nowrap;
+}
+.ui-badge--accent { background: var(--accent-soft, rgba(80, 140, 220, 0.18)); color: var(--accent); }
+.ui-badge--success { background: rgba(80, 200, 80, 0.18); color: #6ec96e; }
+.ui-badge--danger { background: rgba(220, 90, 90, 0.18); color: #d77; }
+.ui-badge--muted { background: transparent; color: var(--muted); }
+
+.ui-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+.ui-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--fs-table);
+}
+.ui-table thead {
+  background: var(--panel-soft, rgba(255, 255, 255, 0.03));
+}
+.ui-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.ui-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  vertical-align: middle;
+}
+.ui-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.ui-table .t-num {
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Override generic recruiting board pills (legacy) — superseded by .ui-badge. */
+.recruiting-board__stars { letter-spacing: 1px; color: #f5c243; }
+.recruiting-board__stars-empty { color: rgba(255, 255, 255, 0.18); }
+
+.recruiting-board__toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 12px 0;
+}
+.recruiting-board__toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.recruiting-board__toolbar-filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: end;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Team needs cards (FCCD-modeled grid)
+   ───────────────────────────────────────────────────────────── */
+.team-needs-cards {
+  margin: 12px 0;
+}
+.team-needs-cards__heading {
+  font-size: var(--fs-h2);
+  margin: 0 0 8px;
+}
+.team-needs-cards__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+.team-needs-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--panel, rgba(255, 255, 255, 0.02));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.12s ease;
+}
+.team-needs-card--thin {
+  border-color: var(--accent);
+  background: var(--accent-soft, rgba(80, 140, 220, 0.06));
+}
+.team-needs-card__top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.team-needs-card__count {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.team-needs-card__pos {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.team-needs-card__stats {
+  display: flex;
+  gap: 14px;
+  margin: 0;
+}
+.team-needs-card__stats > div {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.team-needs-card__stats dt {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+.team-needs-card__stats dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.team-needs-card__needs {
+  margin: 0;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+.team-needs-card--thin .team-needs-card__needs {
+  color: var(--accent);
+}
+
+/* Sprint 28: Weekly checklist on Season Hub */
+.weekly-checklist {
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel, rgba(255, 255, 255, 0.02));
+  padding: 16px;
+}
+.weekly-checklist__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.weekly-checklist__heading {
+  margin: 0;
+  font-size: var(--fs-h2);
+}
+.weekly-checklist__progress {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+.weekly-checklist__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.weekly-checklist__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  border-radius: 6px;
+  background: var(--bg);
+}
+.weekly-checklist__item--pending {
+  border-color: var(--accent);
+}
+.weekly-checklist__item--done {
+  opacity: 0.7;
+}
+.weekly-checklist__item--na,
+.weekly-checklist__item--optional {
+  opacity: 0.85;
+}
+.weekly-checklist__item-body {
+  flex: 1;
+  min-width: 0;
+}
+.weekly-checklist__item-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.weekly-checklist__icon {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+.weekly-checklist__icon--done {
+  background: rgba(80, 200, 80, 0.18);
+  color: #6ec96e;
+}
+.weekly-checklist__icon--pending {
+  background: var(--accent-soft, rgba(80, 140, 220, 0.18));
+  color: var(--accent);
+}
+.weekly-checklist__item-title {
+  font-size: var(--fs-base);
+}
+.weekly-checklist__item-detail {
+  margin: 4px 0 0 32px;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+
+/* Sprint 28: Season analytics panel */
+.season-analytics__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+.season-analytics__card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--panel, rgba(255, 255, 255, 0.02));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.season-analytics__card-label {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.season-analytics__card-value {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.season-analytics__section {
+  margin: 24px 0 12px;
+}
+.season-analytics__h2 {
+  font-size: var(--fs-h2);
+  margin: 0 0 8px;
+}
+.season-analytics__empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Sprint 28: Portal action row inside table cell */
+.portal-view__action-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.portal-view__nil-input {
+  width: 6rem;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel, rgba(255, 255, 255, 0.04));
+  color: var(--fg);
+  font: inherit;
+}
+.portal-view__nil-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.portal-view__row--selected {
+  background: var(--accent-soft, rgba(80, 140, 220, 0.10));
+}
+
+/* Sprint 28: NIL closed-state notice */
+.nil-view__closed {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  margin: 16px 0;
+  background: var(--panel, rgba(255, 255, 255, 0.02));
+  text-align: center;
+}
+.nil-view__closed h2 {
+  margin: 0 0 8px;
+  font-size: var(--fs-h2);
+}
+.nil-view__closed p {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* Sprint 28: Depth chart add-player row */
+.depth-chart-view__add-row {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  margin: 8px 0 12px;
+  padding: 8px;
+  background: var(--panel-soft, rgba(255, 255, 255, 0.02));
+  border-radius: 6px;
+}
+.depth-chart-view__add-row .ui-field {
+  flex: 1;
+  min-width: 200px;
+}
+.depth-chart-view__add-empty {
+  margin: 8px 0 12px;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Sprint 28: ShadCN-style toggle pill (used by Awards position filter). */
+.ui-toggle-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel, rgba(255, 255, 255, 0.04));
+  color: var(--muted);
+  cursor: pointer;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  user-select: none;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.ui-toggle-pill:hover {
+  border-color: var(--accent);
+  color: var(--fg);
+}
+.ui-toggle-pill:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.ui-toggle-pill--active {
+  background: var(--accent-soft, rgba(80, 140, 220, 0.18));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Awards screen */
+.recruiting-header__cap--field {
+  /* The "Season" header tile contains a select; let it stretch to its
+     content rather than the .cap-value font height. */
+  min-width: 140px;
+}
+.awards-view__pos-filter {
+  border: 0;
+  margin: 12px 0;
+  padding: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.awards-view__pos-filter legend {
+  margin-right: 8px;
+  padding: 0;
+}
+.awards-view__tab-count {
+  margin-left: 6px;
+}
+.awards-view__player-btn {
+  background: none;
+  border: 0;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.awards-view__player-btn:hover {
+  text-decoration: underline;
+}
+.awards-view__chevron {
+  color: var(--muted);
+  font-size: 12px;
+}
+.awards-view__stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.awards-view__stat-label {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+}
+.awards-view__career {
+  background: var(--panel-soft, rgba(255, 255, 255, 0.02));
+  padding: 12px 16px;
+}
+.awards-view__career-heading {
+  margin: 0 0 6px;
+  font-size: var(--fs-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.awards-view__career-list {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: var(--fs-meta);
+}
+.awards-view__empty {
+  color: var(--muted);
+  font-style: italic;
+  padding: 12px;
+  text-align: center;
 }

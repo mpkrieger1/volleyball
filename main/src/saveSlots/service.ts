@@ -3,7 +3,7 @@ import { readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { perf } from '@vcd/shared';
-import { seedLeagueInto } from '@vcd/shared/seed';
+import { seedLeagueInto, deriveCoachContract } from '@vcd/shared/seed';
 import {
   resolveSaveSlotDir,
   resolveSaveSlotDbPath,
@@ -190,6 +190,19 @@ async function createSaveSlotImpl(
       throw new SaveSlotError('IO_ERROR', `Failed to seed league into save DB: ${(err as Error).message}`);
     }
 
+    // Sprint 28 fix: ensure a Season row exists for the dynasty year so
+    // the post-create team picker can write `Season.userTeamId`. Pre-
+    // Sprint-27 the user clicked "Generate schedule" first which
+    // implicitly created the Season row; after Task 27.1 moved schedule
+    // gen to `startRegular`, fresh saves had no Season row at picker
+    // time and `setUserTeam` failed silently with NOT_FOUND.
+    const existingSeason = await client.season.findUnique({ where: { year: 2026 } });
+    if (!existingSeason) {
+      await client.season.create({
+        data: { year: 2026, phase: 'PRESEASON', currentWeek: 0 },
+      });
+    }
+
     const row = await client.saveSlot.create({
       data: { name: trimmed, dynastyYear: 2026 },
     });
@@ -279,6 +292,48 @@ export async function openSaveSlot(
         await applyMigrations(deps.repoRoot, dbPath);
         const reopened = new PrismaClient({ datasources: { db: { url: `file:${dbPath}` } } });
         try {
+          // Sprint 28 fix: backfill a Season row for legacy saves created
+          // pre-Sprint-28 that never had one (saves created between
+          // Sprint 27's schedule-gen-on-startRegular change and the
+          // Sprint 28 createSaveSlot fix). Idempotent: skips if Season
+          // already exists for the dynasty year.
+          const dynastyYear = row.dynastyYear ?? 2026;
+          const seasonExists = await reopened.season.findUnique({
+            where: { year: dynastyYear },
+          });
+          if (!seasonExists) {
+            await reopened.season.create({
+              data: { year: dynastyYear, phase: 'PRESEASON', currentWeek: 0 },
+            });
+          }
+
+          // Sprint 28 backfill: legacy saves seeded coaches with
+          // salary=0 / contractYears=1 (schema defaults). Now that the
+          // seeder sets real values, fix up any existing rows so the
+          // Staff screen + buyout math have realistic numbers. Idempotent:
+          // only updates rows where salary is currently 0.
+          const zeroSalaryCoaches = await reopened.coach.findMany({
+            where: { salary: 0, teamId: { not: null } },
+            select: {
+              id: true,
+              role: true,
+              team: { select: { prestige: true } },
+            },
+          });
+          if (zeroSalaryCoaches.length > 0) {
+            for (const c of zeroSalaryCoaches) {
+              if (c.role !== 'HC' && c.role !== 'AHC' && c.role !== 'AC') continue;
+              const prestige = c.team?.prestige ?? 55;
+              const contract = deriveCoachContract(c.role, prestige);
+              await reopened.coach.update({
+                where: { id: c.id },
+                data: {
+                  salary: contract.salaryCents,
+                  contractYears: contract.contractYears,
+                },
+              });
+            }
+          }
           const updated = await reopened.saveSlot.update({
             where: { id: row.id },
             data: { lastOpenedAt: new Date() },

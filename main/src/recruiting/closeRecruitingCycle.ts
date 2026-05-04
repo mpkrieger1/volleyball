@@ -11,7 +11,7 @@
 // 4 seasons because COMMITTED recruits were never converted).
 
 import { PrismaClient, type Prisma } from '@prisma/client';
-import { sim } from '@vcd/shared';
+import { sim, roster } from '@vcd/shared';
 
 export type CloseRecruitingCycleInput = { dbPath: string };
 export type CloseRecruitingCycleResult = {
@@ -66,14 +66,34 @@ export async function closeRecruitingCycle(
             usedByTeam.set(p.teamId, set);
           }
 
+          // Sprint 28: 17-player roster cap. Track per-team count from
+          // existing roster + assigned-this-cycle, and skip recruits
+          // whose team is already at the cap. Rolled-over recruits
+          // become UNCOMMITTED (the same terminal state as recruits
+          // who never decided) so the user/UI can see they didn't sign.
+          const rosterCountByTeam = new Map<string, number>();
+          for (const p of existing) {
+            rosterCountByTeam.set(p.teamId, (rosterCountByTeam.get(p.teamId) ?? 0) + 1);
+          }
+
           const playerCreates: Prisma.PlayerCreateManyInput[] = [];
+          const promotedRecruitIds: string[] = [];
+          const overflowRecruitIds: string[] = [];
           for (const rec of committed) {
             const teamId = rec.commitTeamId!;
+            const currentCount = rosterCountByTeam.get(teamId) ?? 0;
+            if (currentCount >= roster.MAX_ROSTER_SIZE) {
+              // Team already full — recruit rolls to UNCOMMITTED.
+              overflowRecruitIds.push(rec.id);
+              continue;
+            }
             const ratings = sim.PlayerRatingsSchema.parse(JSON.parse(rec.ratingsJson));
             const used = usedByTeam.get(teamId) ?? new Set<number>();
             const jersey = pickAvailableJersey(used);
             used.add(jersey);
             usedByTeam.set(teamId, used);
+            rosterCountByTeam.set(teamId, currentCount + 1);
+            promotedRecruitIds.push(rec.id);
 
             playerCreates.push({
               teamId,
@@ -103,17 +123,28 @@ export async function closeRecruitingCycle(
           for (let off = 0; off < playerCreates.length; off += CHUNK) {
             await tx.player.createMany({ data: playerCreates.slice(off, off + CHUNK) });
           }
-          // Mark promoted recruits as SIGNED. Next cycle's
-          // `openRecruitingCycle` deletes by seasonYear, so SIGNED rows
-          // don't accumulate across cycles.
-          for (let off = 0; off < committed.length; off += CHUNK) {
-            const slice = committed.slice(off, off + CHUNK).map((r) => r.id);
+          // Sprint 28: only mark the actually-promoted recruits as SIGNED.
+          // Overflow recruits (team was at the 17-player cap) flip to
+          // UNCOMMITTED so the user knows they didn't land — and so
+          // the next cycle's openRecruitingCycle delete-by-seasonYear
+          // pass cleans them up cleanly.
+          for (let off = 0; off < promotedRecruitIds.length; off += CHUNK) {
+            const slice = promotedRecruitIds.slice(off, off + CHUNK);
             await tx.recruit.updateMany({
               where: { id: { in: slice } },
               data: { commitState: 'SIGNED' },
             });
           }
-          promotedCount = committed.length;
+          if (overflowRecruitIds.length > 0) {
+            for (let off = 0; off < overflowRecruitIds.length; off += CHUNK) {
+              const slice = overflowRecruitIds.slice(off, off + CHUNK);
+              await tx.recruit.updateMany({
+                where: { id: { in: slice } },
+                data: { commitState: 'UNCOMMITTED', commitTeamId: null },
+              });
+            }
+          }
+          promotedCount = promotedRecruitIds.length;
         }
 
         const result = await tx.recruit.updateMany({

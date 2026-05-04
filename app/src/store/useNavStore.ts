@@ -4,6 +4,8 @@ export type ActiveScreen =
   | 'season-hub'
   | 'match-hub'
   | 'schedule'
+  | 'roster'
+  | 'season' // Sprint 28: parent for poll/bracket/standings/awards
   | 'poll'
   | 'bracket'
   | 'recruiting'
@@ -14,6 +16,7 @@ export type ActiveScreen =
   | 'awards'
   | 'analytics'
   | 'standings'
+  | 'depth-chart'
   | 'settings';
 
 type NavState = {

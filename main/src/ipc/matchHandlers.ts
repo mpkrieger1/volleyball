@@ -6,6 +6,7 @@ import { simulateAndPersistMatch, MatchError } from '../match/simulateAndPersist
 import { getMatchById } from '../match/getMatchById';
 import { getMatchAnalytics } from '../match/getMatchAnalytics';
 import { listRecentMatches } from '../match/listRecentMatches';
+import { getSeasonAnalytics } from '../match/getSeasonAnalytics';
 
 function toIpcError(err: unknown) {
   if (err instanceof MatchError) {
@@ -156,6 +157,31 @@ export function registerMatchHandlers(deps: SaveSlotServiceDeps): void {
       } finally {
         await client.$disconnect();
       }
+    } catch (err) {
+      return {
+        ok: false as const,
+        error: { code: 'IO_ERROR' as const, message: (err as Error).message },
+      };
+    }
+  });
+
+  // Sprint 28: season analytics aggregator (used by Analytics screen "Season"
+  // mode and the Roster screen's stats toggle).
+  ipcMain.handle(matchIpc.MATCH_IPC_CHANNELS.seasonAnalytics, async (_e, raw: unknown) => {
+    try {
+      const req = matchIpc.SeasonAnalyticsRequest.parse(raw);
+      const dbPath = await findSlotDbPathById(deps, req.slotId);
+      if (!dbPath) {
+        return {
+          ok: false as const,
+          error: { code: 'NOT_FOUND' as const, message: `slot ${req.slotId} not found` },
+        };
+      }
+      const result = await getSeasonAnalytics({ dbPath, teamId: req.teamId });
+      if ('error' in result) {
+        return { ok: false as const, error: { code: result.error, message: result.message } };
+      }
+      return { ok: true as const, ...result };
     } catch (err) {
       return {
         ok: false as const,

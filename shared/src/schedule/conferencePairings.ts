@@ -1,7 +1,10 @@
-// Circle-method double round-robin. For N teams:
-//   - If N is even: N-1 rounds of N/2 matches each = single round-robin.
-//   - If N is odd: N rounds of (N-1)/2 matches (one team sits out per round).
-// Double round-robin = mirror with home/away swapped.
+// Circle-method round-robin, capped at MAX_CONF_ROUNDS_PER_TEAM rounds before
+// mirroring. Each team plays `min(N-1, MAX_CONF_ROUNDS_PER_TEAM)` distinct
+// opponents; then we mirror to double the games (home/away swapped).
+//
+// Sprint 28 change: cap = 9 rounds → 18 conf games per team for any conf with
+// ≥10 members. Smaller confs play (N-1)*2 games (full double round-robin).
+// Replaces the strict double round-robin invariant from Sprint 7.
 //
 // Deterministic under a seeded RNG (used only to shuffle the team list at the
 // start — the circle method itself is deterministic).
@@ -11,10 +14,12 @@ import type { Rng } from '../rng';
 export type ConferencePairing = {
   homeTeamId: string;
   awayTeamId: string;
-  /** 0-indexed round within the conference's double round-robin. */
+  /** 0-indexed round within the conference's pairing schedule. */
   roundIndex: number;
   conferenceId: string;
 };
+
+export const MAX_CONF_ROUNDS_PER_TEAM = 9;
 
 /** Fisher-Yates shuffle using the seeded RNG. */
 function shuffle<T>(arr: readonly T[], rng: Rng): T[] {
@@ -39,7 +44,9 @@ export function generateConferencePairings(
   if (byeAdded) ids = [...ids, null];
 
   const n = ids.length;
-  const rounds = n - 1;
+  // Cap rounds at MAX_CONF_ROUNDS_PER_TEAM so confs ≥10 teams play 18 games
+  // after mirroring; smaller confs play (N-1) rounds = full single round-robin.
+  const rounds = Math.min(n - 1, MAX_CONF_ROUNDS_PER_TEAM);
   const pairings: ConferencePairing[] = [];
 
   for (let r = 0; r < rounds; r++) {

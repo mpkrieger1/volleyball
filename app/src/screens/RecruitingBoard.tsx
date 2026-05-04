@@ -1,40 +1,45 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+// Sprint 28 Task 28.5B: Recruiting screen rewrite (FCCD-modeled).
+//
+// Layout (top → bottom):
+//   - RecruitingHeader (4 stat tiles + roster gaps).
+//   - Tab bar: All Recruits | My Targets | My Commits.
+//   - Filter row (position / stars / region) + recruiting actions row.
+//   - Sortable table of recruits.
+//   - Click row → RecruitDetailModal.
+//
+// Deferred to v1.2 (per design doc §9.2): Outstanding Offers / Roster tabs,
+// Targets-by-position panel, Recruit Priorities matrix, Visits scheduling.
+
+import { useEffect, useMemo, useState } from 'react';
 import { useSaveSlotsStore } from '../store/useSaveSlotsStore';
-import { useRecruitingStore, type BoardRecruit } from '../store/useRecruitingStore';
+import {
+  useRecruitingStore,
+  type BoardRecruit,
+  type RecruitingTab,
+} from '../store/useRecruitingStore';
 import { useUserTeamStore } from '../store/useUserTeamStore';
 import { useTableState } from '../hooks/useTableState';
-import type { recruitingIpc } from '@vcd/shared';
+import { useScheduleStore } from '../store/useScheduleStore';
+import { RecruitingHeader } from '../components/RecruitingHeader';
+import { RecruitDetailModal } from '../components/RecruitDetailModal';
+import { TeamNeedsCards } from '../components/TeamNeedsCards';
 
 const POSITIONS = ['OH', 'MB', 'OPP', 'S', 'L', 'DS'] as const;
 const REGIONS = ['EAST', 'CENTRAL', 'MOUNTAIN', 'PACIFIC'] as const;
 const STARS = [1, 2, 3, 4, 5] as const;
 
-const ACTIONS: recruitingIpc.RecruitingActionType[] = [
-  'CALL',
-  'UNOFFICIAL_VISIT',
-  'HOME_VISIT',
-  'OFFICIAL_VISIT',
+const TABS: Array<{ id: RecruitingTab; label: string }> = [
+  { id: 'all', label: 'All Recruits' },
+  { id: 'targets', label: 'My Targets' },
+  { id: 'commits', label: 'My Commits' },
 ];
-const ACTION_LABELS: Record<string, string> = {
-  CALL: 'Call',
-  UNOFFICIAL_VISIT: 'Unofficial',
-  HOME_VISIT: 'Home Visit',
-  OFFICIAL_VISIT: 'Official',
-};
 
-/**
- * Sprint 21: reads Season.userTeamId via useUserTeamStore. Falls back to
- * teams[0] for legacy saves where userTeamId is null. The Sprint 13
- * shortcut comment has been replaced.
- */
 export function RecruitingBoard() {
   const openedSlotId = useSaveSlotsStore((s) => s.openedSlotId);
   const userTeamId = useUserTeamStore((s) => s.userTeamId);
   const userTeamStatus = useUserTeamStore((s) => s.status);
   const [fallbackTeamId, setFallbackTeamId] = useState<string | null>(null);
 
-  // Legacy fallback: load teams[0] only if userTeamStore is ready and the
-  // value is null (pre-Sprint-21 saves never wrote userTeamId).
   useEffect(() => {
     if (!openedSlotId) return;
     if (userTeamStatus !== 'ready') return;
@@ -56,48 +61,69 @@ export function RecruitingBoard() {
 }
 
 function RecruitingBoardInner({ teamId }: { teamId: string }) {
-  const openedSlotId = useSaveSlotsStore((s) => s.openedSlotId);
+  const openedSlotId = useSaveSlotsStore((s) => s.openedSlotId)!;
+  const teams = useScheduleStore((s) => s.teams);
+  const userTeam = teams.find((t) => t.id === teamId) ?? null;
+  const [interestedOnly, setInterestedOnly] = useState(false);
   const {
     phase,
     week,
-    budgetRemaining,
     recruits,
     status,
     error,
     filter,
+    tab,
+    detailOpen,
+    detail,
+    detailStatus,
+    budget,
+    teamNeeds,
     load,
     setFilter,
+    setTab,
     openCycle,
     performAction,
     advanceWeek,
     closeCycle,
+    openDetail,
+    closeDetail,
   } = useRecruitingStore();
 
   useEffect(() => {
-    if (openedSlotId) void load(openedSlotId, teamId);
+    void load(openedSlotId, teamId);
   }, [openedSlotId, teamId, load]);
 
-  // Sprint 21: filter via the existing recruitingStore filter, then layer
-  // sort + multi-select via useTableState.
-  const filtered = useMemo(() => {
-    return recruits.filter((r) => {
+  // Filter pipeline: filter → tab → useTableState (for sort).
+  const visible = useMemo(() => {
+    let rows = recruits.filter((r) => {
       if (filter.position && r.position !== filter.position) return false;
       if (filter.region && r.hometownRegion !== filter.region) return false;
       if (filter.minStars && r.stars < filter.minStars) return false;
       return true;
     });
-  }, [recruits, filter]);
+    if (tab === 'targets') {
+      rows = rows.filter((r) => r.actionsSpent > 0 && r.commitState === 'PENDING');
+    } else if (tab === 'commits') {
+      rows = rows.filter(
+        (r) =>
+          (r.commitState === 'COMMITTED' || r.commitState === 'SIGNED') &&
+          r.commitTeamId === teamId,
+      );
+    }
+    if (interestedOnly) {
+      rows = rows.filter((r) => r.interest > 0);
+    }
+    return rows;
+  }, [recruits, filter, tab, teamId, interestedOnly]);
 
   const tbl = useTableState<BoardRecruit>({
-    rows: filtered,
+    rows: visible,
     getId: (r) => r.recruitId,
+    defaultSort: { key: 'interest', dir: 'desc' },
   });
-  const [anchorId, setAnchorId] = useState<string | null>(null);
-  const visible = tbl.visibleRows;
-
-  if (!openedSlotId) return null;
 
   const canAct = phase === 'RECRUITING' && status !== 'advancing';
+  const budgetRemaining = budget?.remaining ?? 0;
 
   return (
     <section aria-labelledby="rec-heading" className="recruiting-board">
@@ -105,97 +131,144 @@ function RecruitingBoardInner({ teamId }: { teamId: string }) {
         <h1 id="rec-heading">Recruiting</h1>
         <p className="match-hub__sub">
           Phase: {phase}
-          {phase === 'RECRUITING'
-            ? ` · Week ${week} · Budget: ${budgetRemaining}`
-            : ''}
+          {phase === 'RECRUITING' ? ` · Week ${week}` : ''}
         </p>
       </header>
 
-      <div className="recruiting-board__controls" role="group" aria-label="Recruiting controls">
-        {phase !== 'RECRUITING' && (
+      <RecruitingHeader budget={budget} recruits={recruits} teamNeeds={teamNeeds} />
+
+      <TeamNeedsCards needs={teamNeeds} recruits={recruits} />
+
+      <nav className="recruiting-board__tabs" role="tablist" aria-label="Recruit list tabs">
+        {TABS.map((t) => (
           <button
+            key={t.id}
             type="button"
-            disabled={status === 'advancing'}
-            onClick={() => void openCycle(openedSlotId, 2026)}
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={() => setTab(t.id)}
+            className={
+              tab === t.id
+                ? 'recruiting-board__tab recruiting-board__tab--active'
+                : 'recruiting-board__tab'
+            }
+            data-testid={`tab-${t.id}`}
           >
-            Open Recruiting Cycle
+            {t.label}
           </button>
-        )}
-        {phase === 'RECRUITING' && (
-          <>
+        ))}
+      </nav>
+
+      <div className="recruiting-board__toolbar" role="group" aria-label="Recruiting toolbar">
+        <div className="recruiting-board__toolbar-actions">
+          {phase !== 'RECRUITING' && (
             <button
               type="button"
-              disabled={!canAct}
-              onClick={() => void advanceWeek(openedSlotId, teamId)}
+              className="ui-btn ui-btn--primary"
+              disabled={status === 'advancing'}
+              onClick={() => void openCycle(openedSlotId, 2026)}
             >
-              Advance Week
+              Open Recruiting Cycle
             </button>
-            <button
-              type="button"
-              disabled={!canAct}
-              onClick={() => void closeCycle(openedSlotId)}
+          )}
+          {phase === 'RECRUITING' && (
+            <>
+              <button
+                type="button"
+                className="ui-btn ui-btn--primary"
+                disabled={!canAct}
+                onClick={() => void advanceWeek(openedSlotId, teamId)}
+              >
+                Advance Week
+              </button>
+              <button
+                type="button"
+                className="ui-btn"
+                disabled={!canAct}
+                onClick={() => void closeCycle(openedSlotId)}
+              >
+                Close Cycle (Signing Day)
+              </button>
+            </>
+          )}
+        </div>
+
+        <div className="recruiting-board__toolbar-filters">
+          <div className="ui-field">
+            <label htmlFor="filter-pos" className="ui-label">Position</label>
+            <select
+              id="filter-pos"
+              className="ui-select"
+              value={filter.position ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                const { position: _p, ...rest } = filter;
+                setFilter(v ? { ...rest, position: v } : rest);
+              }}
             >
-              Close Cycle (Signing Day)
-            </button>
-          </>
-        )}
-        <label>
-          Position:{' '}
-          <select
-            aria-label="Filter by position"
-            value={filter.position ?? ''}
-            onChange={(e) => {
-              const v = e.target.value;
-              const { position: _p, ...rest } = filter;
-              setFilter(v ? { ...rest, position: v } : rest);
-            }}
-          >
-            <option value="">All</option>
-            {POSITIONS.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Region:{' '}
-          <select
-            aria-label="Filter by region"
-            value={filter.region ?? ''}
-            onChange={(e) => {
-              const v = e.target.value;
-              const { region: _r, ...rest } = filter;
-              setFilter(v ? { ...rest, region: v } : rest);
-            }}
-          >
-            <option value="">All</option>
-            {REGIONS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Min stars:{' '}
-          <select
-            aria-label="Filter by min stars"
-            value={filter.minStars ?? 0}
-            onChange={(e) => {
-              const n = Number(e.target.value);
-              const { minStars: _m, ...rest } = filter;
-              setFilter(n > 0 ? { ...rest, minStars: n } : rest);
-            }}
-          >
-            <option value="0">Any</option>
-            {STARS.map((s) => (
-              <option key={s} value={s}>
-                {s}+
-              </option>
-            ))}
-          </select>
-        </label>
+              <option value="">All</option>
+              {POSITIONS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="ui-field">
+            <label htmlFor="filter-region" className="ui-label">Region</label>
+            <select
+              id="filter-region"
+              className="ui-select"
+              value={filter.region ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                const { region: _r, ...rest } = filter;
+                setFilter(v ? { ...rest, region: v } : rest);
+              }}
+            >
+              <option value="">All</option>
+              {REGIONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="ui-field">
+            <label htmlFor="filter-stars" className="ui-label">Min stars</label>
+            <select
+              id="filter-stars"
+              className="ui-select"
+              value={filter.minStars ?? 0}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                const { minStars: _m, ...rest } = filter;
+                setFilter(n > 0 ? { ...rest, minStars: n } : rest);
+              }}
+            >
+              <option value="0">Any</option>
+              {STARS.map((s) => (
+                <option key={s} value={s}>
+                  {s}+
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <label className="ui-checkbox">
+            <input
+              type="checkbox"
+              checked={interestedOnly}
+              onChange={(e) => setInterestedOnly(e.target.checked)}
+              data-testid="filter-interested"
+            />
+            <span>
+              Interested in {userTeam?.abbr ?? 'my school'}
+            </span>
+          </label>
+        </div>
       </div>
 
       {error && (
@@ -204,180 +277,101 @@ function RecruitingBoardInner({ teamId }: { teamId: string }) {
         </p>
       )}
 
-      {recruits.length === 0 ? (
-        <p className="match-hub__sub">
-          No recruits on board yet. Open a recruiting cycle to begin.
+      {status === 'loading' && <p data-testid="recruiting-loading">Loading…</p>}
+
+      {status === 'ready' && tbl.visibleRows.length === 0 && (
+        <p className="match-hub__sub" data-testid="recruiting-empty">
+          {tab === 'all'
+            ? 'No recruits available. Open a recruiting cycle to begin.'
+            : tab === 'targets'
+              ? 'You have no targets yet. Spend an action on a recruit from "All Recruits" to add them.'
+              : 'No commitments yet.'}
         </p>
-      ) : (
-        <>
-          {tbl.selection.size > 0 && (
-            <div className="recruiting-board__bulk" role="status">
-              {tbl.selection.size} selected
-              <button type="button" onClick={() => tbl.clearSelection()}>
-                Clear selection
-              </button>
-            </div>
-          )}
+      )}
+
+      {tbl.visibleRows.length > 0 && (
+        <div className="ui-table-wrap">
           <table
-            className="poll-view__table recruiting-board__table"
+            className="ui-table recruiting-board__table"
             aria-label="Recruiting board"
+            data-testid="recruiting-table"
           >
             <thead>
               <tr>
-                <th scope="col">
-                  <input
-                    type="checkbox"
-                    aria-label="Select all visible recruits"
-                    checked={visible.length > 0 && tbl.selection.size === visible.length}
-                    onChange={(e) =>
-                      e.target.checked ? tbl.selectAll() : tbl.clearSelection()
-                    }
-                  />
-                </th>
-                <SortHeader label="Name" sortKey="lastName" tbl={tbl} />
-                <th scope="col">Pos</th>
-                <SortHeader label="Stars" sortKey="stars" tbl={tbl} />
-                <SortHeader label="Ht" sortKey="height" tbl={tbl} />
-                <th scope="col">Home</th>
-                <th scope="col">State</th>
-                <SortHeader label="Interest" sortKey="interest" tbl={tbl} />
-                <th scope="col">Actions</th>
+                <th scope="col">Player</th>
+                <th scope="col" className="t-num">Pos</th>
+                <th scope="col" className="t-num">Stars</th>
+                <th scope="col">Region</th>
+                <th scope="col">Leader</th>
+                <th scope="col" className="t-num">Interest</th>
+                <th scope="col">Status</th>
               </tr>
             </thead>
             <tbody>
-              {visible.map((r, idx) => (
-                <BoardRow
-                  key={r.recruitId}
-                  recruit={r}
-                  canAct={canAct}
-                  isSelected={tbl.selection.has(r.recruitId)}
-                  rowIndex={idx}
-                  rowsCount={visible.length}
-                  onSelect={(e) => {
-                    if (e.shiftKey && anchorId) tbl.selectRange(anchorId, r.recruitId);
-                    else if (e.ctrlKey || e.metaKey) tbl.toggleSelected(r.recruitId);
-                    else tbl.selectOnly(r.recruitId);
-                    setAnchorId(r.recruitId);
-                  }}
-                  onAct={(action) =>
-                    openedSlotId && void performAction(openedSlotId, teamId, r.recruitId, action)
+            {tbl.visibleRows.map((r) => (
+              <tr
+                key={r.recruitId}
+                tabIndex={0}
+                onClick={() => void openDetail(openedSlotId, teamId, r.recruitId)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    void openDetail(openedSlotId, teamId, r.recruitId);
                   }
-                />
-              ))}
+                }}
+                data-testid={`recruit-row-${r.recruitId}`}
+                className="recruiting-board__row"
+              >
+                <td>
+                  <strong>{r.firstName} {r.lastName}</strong>
+                  {r.hometownCity && (
+                    <span className="recruiting-board__home"> — {r.hometownCity}, {r.hometownState}</span>
+                  )}
+                </td>
+                <td className="t-num">{r.position}</td>
+                <td className="t-num" aria-label={`${r.stars} stars`}>
+                  <span className="recruiting-board__stars">{'★'.repeat(r.stars)}<span className="recruiting-board__stars-empty">{'★'.repeat(5 - r.stars)}</span></span>
+                </td>
+                <td>{r.hometownRegion ?? '—'}</td>
+                <td>{r.leaderAbbr ?? '—'}</td>
+                <td className="t-num">{r.interest}</td>
+                <td>
+                  {r.commitState === 'PENDING' && r.actionsSpent > 0 && (
+                    <span className="ui-badge ui-badge--accent">
+                      Target ({r.actionsSpent})
+                    </span>
+                  )}
+                  {r.commitState === 'PENDING' && r.actionsSpent === 0 && (
+                    <span className="ui-badge ui-badge--muted">—</span>
+                  )}
+                  {(r.commitState === 'COMMITTED' || r.commitState === 'SIGNED') && (
+                    <span className="ui-badge ui-badge--success">
+                      {r.commitState}
+                    </span>
+                  )}
+                  {r.commitState === 'UNCOMMITTED' && (
+                    <span className="ui-badge ui-badge--danger">Lost</span>
+                  )}
+                </td>
+              </tr>
+            ))}
             </tbody>
           </table>
-        </>
+        </div>
       )}
 
-      {status === 'loading' && <p>Loading…</p>}
-    </section>
-  );
-}
-
-function SortHeader<Row>(props: {
-  label: string;
-  sortKey: keyof Row & string;
-  tbl: ReturnType<typeof useTableState<Row>>;
-}) {
-  const isActive = props.tbl.sortKey === props.sortKey;
-  const ariaSort: 'ascending' | 'descending' | 'none' = !isActive
-    ? 'none'
-    : props.tbl.sortDir === 'asc'
-      ? 'ascending'
-      : 'descending';
-  return (
-    <th scope="col" aria-sort={ariaSort}>
-      <button
-        type="button"
-        className="recruiting-board__sort-btn"
-        onClick={() => props.tbl.setSort(props.sortKey)}
-      >
-        {props.label}
-        {isActive ? (props.tbl.sortDir === 'asc' ? ' ↑' : ' ↓') : ''}
-      </button>
-    </th>
-  );
-}
-
-function BoardRow(props: {
-  recruit: BoardRecruit;
-  canAct: boolean;
-  isSelected: boolean;
-  rowIndex: number;
-  rowsCount: number;
-  onSelect: (e: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => void;
-  onAct: (action: recruitingIpc.RecruitingActionType) => void;
-}) {
-  const r = props.recruit;
-  const disabled = !props.canAct || r.commitState !== 'PENDING';
-  const pct = Math.min(100, Math.round((r.interest / 1000) * 100));
-  const home = r.hometownCity && r.hometownState ? `${r.hometownCity}, ${r.hometownState}` : '—';
-  const ref = useRef<HTMLTableRowElement | null>(null);
-
-  const onKey = (e: KeyboardEvent<HTMLTableRowElement>): void => {
-    if (e.key === 'ArrowDown' && props.rowIndex < props.rowsCount - 1) {
-      e.preventDefault();
-      const next = ref.current?.nextElementSibling as HTMLTableRowElement | null;
-      next?.focus();
-    } else if (e.key === 'ArrowUp' && props.rowIndex > 0) {
-      e.preventDefault();
-      const prev = ref.current?.previousElementSibling as HTMLTableRowElement | null;
-      prev?.focus();
-    } else if (e.key === ' ' || e.key === 'Enter') {
-      e.preventDefault();
-      props.onSelect({ shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey });
-    }
-  };
-
-  return (
-    <tr
-      ref={ref}
-      tabIndex={0}
-      aria-selected={props.isSelected}
-      className={props.isSelected ? 'recruiting-board__row--selected' : undefined}
-      onKeyDown={onKey}
-    >
-      <td>
-        <input
-          type="checkbox"
-          aria-label={`Select ${r.firstName} ${r.lastName}`}
-          checked={props.isSelected}
-          onChange={() => props.onSelect({ shiftKey: false, ctrlKey: true, metaKey: false })}
+      {detailOpen && (
+        <RecruitDetailModal
+          detail={detail}
+          loading={detailStatus === 'loading'}
+          budgetRemaining={budgetRemaining}
+          onAction={(action) => {
+            if (!detail) return;
+            void performAction(openedSlotId, teamId, detail.recruitId, action);
+          }}
+          onClose={closeDetail}
         />
-      </td>
-      <td>
-        {r.firstName} {r.lastName}
-      </td>
-      <td>{r.position}</td>
-      <td>{'★'.repeat(r.stars)}</td>
-      <td>{r.height ? `${r.height}cm` : '—'}</td>
-      <td>{home}</td>
-      <td>{r.commitState}</td>
-      <td>
-        <div
-          role="meter"
-          aria-valuenow={r.interest}
-          aria-valuemin={0}
-          aria-valuemax={1000}
-          aria-label={`Interest ${r.interest} of 1000`}
-          className="recruiting-board__meter"
-        >
-          <div className="recruiting-board__meter-fill" style={{ width: `${pct}%` }} />
-        </div>
-      </td>
-      <td>
-        {ACTIONS.map((a) => (
-          <button
-            key={a}
-            type="button"
-            disabled={disabled}
-            onClick={() => props.onAct(a)}
-            className="recruiting-board__action"
-          >
-            {ACTION_LABELS[a]}
-          </button>
-        ))}
-      </td>
-    </tr>
+      )}
+    </section>
   );
 }

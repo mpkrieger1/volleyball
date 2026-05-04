@@ -5,7 +5,6 @@
 // Weekly budget is tighter than recruiting's (30 vs 50) because the
 // portal cycle is shorter (6 weeks vs 12).
 
-import { RECRUITING_ACTIONS } from '../recruiting/actions';
 import { MAX_INTEREST } from '../recruiting/interestModel';
 
 export const PORTAL_ACTION_TYPES = [
@@ -22,12 +21,15 @@ export type PortalActionDef = { cost: number; delta: number };
 /**
  * Point costs for portal actions. OFFER_NIL is free in weekly points
  * but constrained by the team's NIL cap (Sprint 15 booster budget).
+ *
+ * Sprint 28: portal kept its own action names rather than tracking the
+ * recruiting rename (recruiting moved to SCOUT/PHONE_CALL/...).
  */
 export const PORTAL_ACTIONS: Record<Exclude<PortalActionType, 'OFFER_NIL'>, PortalActionDef> = {
-  CALL: RECRUITING_ACTIONS.CALL,
-  UNOFFICIAL_VISIT: RECRUITING_ACTIONS.UNOFFICIAL_VISIT,
-  HOME_VISIT: RECRUITING_ACTIONS.HOME_VISIT,
-  OFFICIAL_VISIT: RECRUITING_ACTIONS.OFFICIAL_VISIT,
+  CALL: { cost: 2, delta: 30 },
+  UNOFFICIAL_VISIT: { cost: 5, delta: 70 },
+  HOME_VISIT: { cost: 10, delta: 120 },
+  OFFICIAL_VISIT: { cost: 15, delta: 180 },
 };
 
 export const OFFER_NIL_COST = 0;

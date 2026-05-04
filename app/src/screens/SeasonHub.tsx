@@ -21,7 +21,10 @@ import { useSeasonStore } from '../store/useSeasonStore';
 import { useUserTeamStore } from '../store/useUserTeamStore';
 import { useScheduleStore } from '../store/useScheduleStore';
 import { useNavStore, type ActiveScreen } from '../store/useNavStore';
+import { useRecruitingStore } from '../store/useRecruitingStore';
 import { SeasonPanel } from './SeasonPanel';
+import { WeeklyChecklist, buildChecklist } from '../components/WeeklyChecklist';
+import { OffseasonPanel } from '../components/OffseasonPanel';
 
 type ActionCard = {
   id: ActiveScreen;
@@ -76,7 +79,13 @@ export function SeasonHub() {
   const phase = useSeasonStore((s) => s.phase);
   const currentWeek = useSeasonStore((s) => s.currentWeek);
   const teams = useScheduleStore((s) => s.teams);
+  const rows = useScheduleStore((s) => s.rows);
+  const selectedTeamId = useScheduleStore((s) => s.selectedTeamId);
   const loadScheduleTeams = useScheduleStore((s) => s.loadTeams);
+  const selectTeam = useScheduleStore((s) => s.selectTeam);
+  const recruitingPhase = useRecruitingStore((s) => s.phase);
+  const recruitingBudget = useRecruitingStore((s) => s.budget);
+  const loadRecruitingHeader = useRecruitingStore((s) => s.loadHeader);
   const setScreen = useNavStore((s) => s.setScreen);
 
   // Hydrate teams list (used to resolve userTeamId → school name).
@@ -86,6 +95,16 @@ export function SeasonHub() {
     }
   }, [openedSlotId, teams.length, loadScheduleTeams]);
 
+  // Load this user team's schedule rows for the weekly checklist + lazy-load
+  // recruiting header so the checklist knows the budget remaining.
+  useEffect(() => {
+    if (!openedSlotId || !userTeamId) return;
+    if (selectedTeamId !== userTeamId) {
+      void selectTeam(openedSlotId, userTeamId);
+    }
+    void loadRecruitingHeader(openedSlotId, userTeamId);
+  }, [openedSlotId, userTeamId, selectedTeamId, selectTeam, loadRecruitingHeader]);
+
   const userTeam = useMemo(
     () => (userTeamId ? teams.find((t) => t.id === userTeamId) ?? null : null),
     [teams, userTeamId],
@@ -93,6 +112,18 @@ export function SeasonHub() {
 
   const group = phaseGroup(phase);
   const visibleCards = ACTION_CARDS.filter((c) => shouldShowCard(c, group));
+
+  const checklistItems = useMemo(
+    () =>
+      buildChecklist({
+        phase,
+        currentWeek,
+        rows: selectedTeamId === userTeamId ? rows : [],
+        recruitingPhase,
+        recruitingBudgetRemaining: recruitingBudget?.remaining ?? 0,
+      }),
+    [phase, currentWeek, rows, selectedTeamId, userTeamId, recruitingPhase, recruitingBudget],
+  );
 
   if (!openedSlotId) return null;
 
@@ -128,6 +159,13 @@ export function SeasonHub() {
       )}
 
       <SeasonPanel />
+
+      {/* Sprint 28: Offseason / Preseason actions used to live in their
+          own tab. Folded into the Hub here — visible only when the
+          phase is OFFSEASON or PRESEASON, hidden the rest of the year. */}
+      {userTeamId && <OffseasonPanel teamId={userTeamId} />}
+
+      <WeeklyChecklist items={checklistItems} onNavigate={setScreen} />
 
       <h2 className="season-hub__h2">What now?</h2>
       <ul className="season-hub__cards" aria-label="Coach actions">

@@ -93,7 +93,7 @@ describe('<PortalView />', () => {
   it('renders incoming + outgoing tabs in PORTAL phase', async () => {
     makeVcd();
     render(<PortalView />);
-    await waitFor(() => expect(screen.getByText(/Phase: PORTAL/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('portal-incoming-table')).toBeInTheDocument());
     const tablist = screen.getByRole('tablist', { name: /Portal tabs/ });
     const tabs = within(tablist).getAllByRole('tab');
     expect(tabs).toHaveLength(2);
@@ -102,23 +102,25 @@ describe('<PortalView />', () => {
   it('defaults to Incoming tab and shows incoming rows', async () => {
     makeVcd();
     render(<PortalView />);
-    await waitFor(() => expect(screen.getByText('Alice Player')).toBeInTheDocument());
-    expect(screen.getByText('Bob Player')).toBeInTheDocument();
+    const tbl = await screen.findByTestId('portal-incoming-table');
+    expect(within(tbl).getByText('Alice')).toBeInTheDocument();
+    expect(within(tbl).getByText('Bob')).toBeInTheDocument();
   });
 
   it('position filter narrows incoming rows', async () => {
     makeVcd();
     render(<PortalView />);
-    await waitFor(() => expect(screen.getByText('Alice Player')).toBeInTheDocument());
-    fireEvent.change(screen.getByLabelText('Filter by position'), { target: { value: 'MB' } });
-    expect(screen.queryByText('Alice Player')).toBeNull();
-    expect(screen.getByText('Bob Player')).toBeInTheDocument();
+    await screen.findByTestId('portal-incoming-table');
+    fireEvent.change(screen.getByLabelText(/Position/i), { target: { value: 'MB' } });
+    const tbl = screen.getByTestId('portal-incoming-table');
+    expect(within(tbl).queryByText('Alice')).toBeNull();
+    expect(within(tbl).getByText('Bob')).toBeInTheDocument();
   });
 
   it('clicking Call invokes portal.action IPC', async () => {
     makeVcd();
     render(<PortalView />);
-    await waitFor(() => expect(screen.getByText('Alice Player')).toBeInTheDocument());
+    await screen.findByTestId('portal-incoming-table');
     const callButtons = screen.getAllByRole('button', { name: 'Call' });
     fireEvent.click(callButtons[0]!);
     await waitFor(() =>
@@ -131,15 +133,16 @@ describe('<PortalView />', () => {
   it('switching to Outgoing tab shows outgoing rows', async () => {
     makeVcd();
     render(<PortalView />);
-    await waitFor(() => expect(screen.getByText('Alice Player')).toBeInTheDocument());
+    await screen.findByTestId('portal-incoming-table');
     fireEvent.click(screen.getByRole('tab', { name: /Outgoing/ }));
-    expect(screen.getByText('Chris Player')).toBeInTheDocument();
+    const tbl = await screen.findByTestId('portal-outgoing-table');
+    expect(within(tbl).getByText('Chris')).toBeInTheDocument();
   });
 
   it('axe-clean', async () => {
     makeVcd();
     const { container } = render(<PortalView />);
-    await waitFor(() => expect(screen.getByText('Alice Player')).toBeInTheDocument());
+    await screen.findByTestId('portal-incoming-table');
     const results = await axe(container);
     expect(results.violations).toEqual([]);
   });

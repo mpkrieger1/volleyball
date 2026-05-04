@@ -191,10 +191,90 @@ export const ListRecentMatchesResponse = z.discriminatedUnion('ok', [
 ]);
 export type ListRecentMatchesResponse = z.infer<typeof ListRecentMatchesResponse>;
 
+// Sprint 28: season-aggregate analytics for the Analytics screen's
+// "Season" view-mode. Pulls per-match summaries + per-player season
+// totals + team trend lines for the user's team.
+export const SeasonAnalyticsRequest = z.object({
+  slotId: z.string().min(1),
+  teamId: z.string().min(1),
+});
+export type SeasonAnalyticsRequest = z.infer<typeof SeasonAnalyticsRequest>;
+
+export const SeasonMatchTrend = z.object({
+  matchId: z.string(),
+  weekIndex: z.number().int(),
+  isoDate: z.string(),
+  opponentAbbr: z.string(),
+  isHome: z.boolean(),
+  /** This team's set count in the match. */
+  setsWon: z.number().int().nonnegative(),
+  setsLost: z.number().int().nonnegative(),
+  /** This team's match-level hitting percent × 1000. */
+  hittingPctMilli: z.number().int(),
+  oppHittingPctMilli: z.number().int(),
+  kills: z.number().int().nonnegative(),
+  oppKills: z.number().int().nonnegative(),
+});
+export type SeasonMatchTrend = z.infer<typeof SeasonMatchTrend>;
+
+export const SeasonPlayerTotal = z.object({
+  playerId: z.string(),
+  playerName: z.string(),
+  position: z.string(),
+  setsPlayed: z.number().int().nonnegative(),
+  matchesPlayed: z.number().int().nonnegative(),
+  kills: z.number().int().nonnegative(),
+  errors: z.number().int().nonnegative(),
+  totalAttacks: z.number().int().nonnegative(),
+  hittingPctMilli: z.number().int(),
+  killsPerSetMilli: z.number().int(),
+  digs: z.number().int().nonnegative(),
+  blocks: z.number().int().nonnegative(),
+  aces: z.number().int().nonnegative(),
+  assists: z.number().int().nonnegative(),
+});
+export type SeasonPlayerTotal = z.infer<typeof SeasonPlayerTotal>;
+
+export const SeasonAnalyticsOk = z.object({
+  ok: z.literal(true),
+  team: z.object({
+    teamId: z.string(),
+    teamAbbr: z.string(),
+    teamSchool: z.string(),
+    seasonYear: z.number().int(),
+    matchesPlayed: z.number().int().nonnegative(),
+    wins: z.number().int().nonnegative(),
+    losses: z.number().int().nonnegative(),
+    setsWon: z.number().int().nonnegative(),
+    setsLost: z.number().int().nonnegative(),
+    teamHittingPctMilli: z.number().int(),
+    oppHittingPctMilli: z.number().int(),
+    totalKills: z.number().int().nonnegative(),
+    totalAces: z.number().int().nonnegative(),
+    totalBlocks: z.number().int().nonnegative(),
+    totalDigs: z.number().int().nonnegative(),
+  }),
+  trend: z.array(SeasonMatchTrend),
+  players: z.array(SeasonPlayerTotal),
+});
+export const SeasonAnalyticsErr = z.object({
+  ok: z.literal(false),
+  error: z.object({
+    code: z.enum(['NOT_FOUND', 'INVALID_INPUT', 'IO_ERROR', 'INTERNAL']),
+    message: z.string(),
+  }),
+});
+export const SeasonAnalyticsResponse = z.discriminatedUnion('ok', [
+  SeasonAnalyticsOk,
+  SeasonAnalyticsErr,
+]);
+export type SeasonAnalyticsResponse = z.infer<typeof SeasonAnalyticsResponse>;
+
 export const MATCH_IPC_CHANNELS = {
   simulate: 'match:simulate',
   listTeams: 'match:listTeams',
   getById: 'match:getById',
   getAnalytics: 'match:getAnalytics',
   listRecentMatches: 'match:listRecentMatches',
+  seasonAnalytics: 'match:seasonAnalytics',
 } as const;

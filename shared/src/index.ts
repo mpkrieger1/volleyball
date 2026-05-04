@@ -29,6 +29,8 @@ export * as postseasonIpc from './ipc/postseasonMessages';
 export * as recruiting from './recruiting';
 export * as recruitingIpc from './ipc/recruitingMessages';
 export * as roster from './roster';
+export * as rosterIpc from './ipc/rosterMessages';
+export * as stats from './stats/playerAggregate';
 export * as portal from './portal';
 export * as portalIpc from './ipc/portalMessages';
 export * as nil from './nil';

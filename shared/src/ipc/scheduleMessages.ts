@@ -47,6 +47,14 @@ export const TeamScheduleRow = z.object({
   isTournament: z.boolean(),
   isNeutralSite: z.boolean(),
   winnerId: z.string().nullable(),
+  // Sprint 28: per-match set scores so the schedule UI can render results
+  // for completed matches. Both sides null when match is unplayed.
+  homeSetsWon: z.number().int().nullable(),
+  awaySetsWon: z.number().int().nullable(),
+  // Sprint 28: tournament round name (e.g. 'CT_R1', 'NCAA_R64'). Null for
+  // regular-season matches. Lets the UI render "CT R1" instead of just a
+  // week number for tournament rows.
+  tournamentRound: z.string().nullable(),
 });
 export type TeamScheduleRow = z.infer<typeof TeamScheduleRow>;
 

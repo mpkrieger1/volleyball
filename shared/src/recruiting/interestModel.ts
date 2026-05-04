@@ -24,46 +24,75 @@ export type RecruitInterestInput = {
   hometownRegion: string; // 'EAST' | 'CENTRAL' | 'MOUNTAIN' | 'PACIFIC'
 };
 
-/** Tunable weights for the base formula. Exposed so Sprint 14+ can tweak. */
 /**
- * Sprint 13: prestige is the dominant signal. Weight=4 gives a meaningful
- * spread across the prestige range (gap ~200 points between blueblood
- * prestige-90 and bottom-quartile prestige-40) so top programs land
- * the elite recruits at a realistic rate (PRD exit test 2).
+ * Sprint 28 (post-screenshot review): tunable weights mirroring the FCCD
+ * "Recruit Priorities" model in spirit. Each recruit weights factors;
+ * each team's standing on each factor is derived from its data:
+ *
+ *   FCCD factor              | VCD source                         | weight here
+ *   -------------------------|------------------------------------|--------------
+ *   School prestige          | Team.prestige × Recruit.stars      | dominant
+ *   Proximity to home        | Team.region == Recruit.region      | REGION_BONUS
+ *   Coach reputation         | HC.ratingRecruit                   | COACH_DIFF_WEIGHT
+ *   Playing time             | commits at recruit's position      | COMMIT_SAT
+ *   Star/program-tier fit    | star-floor ladder (NEW Sprint 28)  | STAR_FLOOR_*
+ *   Scheme fit, atmosphere,  | (deferred — needs new team props)  | —
+ *   facilities, academics,   |
+ *   college life, NIL deal   |
+ *
+ * The Sprint 13 model multiplied prestige by a flat weight (4), so a 5-star
+ * and a 1-star scored identically against a low-prestige program — and
+ * Davidson (prestige 45) ended up with a board full of 5-stars at 230
+ * interest each. The Sprint 28 fix:
+ *   - Make the prestige signal scale with stars: `prestige × stars` so
+ *     star-prestige fit becomes the primary signal (95×5=475, 45×5=225).
+ *   - Add a star-floor penalty: each star tier expects a minimum prestige.
+ *     Schools below the floor pay (floor − prestige) × WEIGHT, which
+ *     wipes out 5-star interest at Davidson while leaving 3-star interest
+ *     intact.
  */
-export const PRESTIGE_WEIGHT = 4.0;
-export const COACH_WEIGHT = 1.0;
+export const PRESTIGE_STAR_WEIGHT = 1.0;
+export const COACH_DIFF_WEIGHT = 0.5;
 export const REGION_BONUS = 40;
-/**
- * Sprint 13: "pickier" is handled by `shouldDecide` waiting longer for
- * higher-star recruits, NOT by lowering base interest. Higher stars
- * DON'T subtract from base — blue-blood programs should pursue the
- * 5-star first. Left at 0 for future tuning.
- */
-export const STAR_DIFFICULTY_PER_STAR = 0;
 export const COMMIT_SATURATION_PER_COMMIT = 15;
+
+/** Minimum team prestige expected for each star tier. */
+export const STAR_PRESTIGE_FLOOR: Record<1 | 2 | 3 | 4 | 5, number> = {
+  1: 0,
+  2: 15,
+  3: 30,
+  4: 50,
+  5: 70,
+};
+/** Cost in interest points per prestige-point shortfall vs. the floor. */
+export const STAR_FLOOR_PENALTY_WEIGHT = 12;
+
 export const MAX_INTEREST = 1000;
 
 /**
- * Base interest in the range 0..~250. Representative gaps:
- *   blueblood (prestige 90, coach 85, region-match): ~250
- *   mid-major (prestige 55, coach 55, no region-match): ~110
- *   low-major (prestige 35, coach 40, no region-match): ~60
- * The AI recruiter multiplies this by its coach-recruit ratio when
- * pushing deltas, so higher-rated recruiters close gaps faster.
+ * Base interest from a team's "Recruit Priorities"-style profile.
+ * Examples:
+ *   blueblood (prestige 90) + 5-star + region-match: 90×5 + 20 + 40 = 510
+ *   blueblood (prestige 90) + 3-star + no region:    90×3 +  0 +  0 = 270
+ *   mid-major (prestige 45) + 5-star + no region:    45×5 − (70−45)×12 = 225 − 300 = 0  (Davidson stays out of the 5-star race)
+ *   mid-major (prestige 45) + 4-star + no region:    45×4 − (50−45)×12 = 180 − 60  = 120
+ *   mid-major (prestige 45) + 3-star + region-match: 45×3 + 40             = 175
+ *   low-major (prestige 25) + 4-star: floor 50, gap 25, penalty 300; base 100 - 300 = 0
+ *   low-major (prestige 25) + 2-star: floor 15, no penalty; base 50, low but visible
  */
 export function computeBaseInterest(
   recruit: RecruitInterestInput,
   team: TeamInterestInput,
 ): number {
-  let score = 0;
-  score += team.prestige * PRESTIGE_WEIGHT;
-  score += team.coachRatingRecruit * COACH_WEIGHT;
+  let score = team.prestige * recruit.stars * PRESTIGE_STAR_WEIGHT;
+  score += (team.coachRatingRecruit - 50) * COACH_DIFF_WEIGHT;
   if (recruit.hometownRegion === team.region) score += REGION_BONUS;
-  // High-star recruits are pickier — the baseline expectation is lower.
-  score -= recruit.stars * STAR_DIFFICULTY_PER_STAR;
-  // Saturation: each prior commit at this position reduces appeal.
   score -= team.commitsAtPosition * COMMIT_SATURATION_PER_COMMIT;
+
+  const floor = STAR_PRESTIGE_FLOOR[recruit.stars];
+  const gap = Math.max(0, floor - team.prestige);
+  score -= gap * STAR_FLOOR_PENALTY_WEIGHT;
+
   return Math.max(0, Math.round(score));
 }
 
@@ -71,14 +100,15 @@ export function computeBaseInterest(
  * Sprint 25: Board-seeding score used by `openRecruitingCycle` to pick
  * which recruits fill each team's initial RecruitInterest board.
  *
- * Distinct from `computeBaseInterest` (which seeds the persisted interest
- * value) for two reasons:
- *   1. Adds a stars bonus so elite recruits rank top-of-board on every
- *      team — `computeBaseInterest` is star-agnostic by design (Sprint 13
- *      `STAR_DIFFICULTY_PER_STAR=0`), which causes ALL non-region-matching
- *      teams to score recruits identically and the id-localeCompare
- *      tiebreaker funnels every team's top-N onto the same id-sorted
- *      recruits, leaving the rest of the class with zero board entries.
+ * Sprint 28 update: the Sprint 25 doc explained that `computeBaseInterest`
+ * was star-agnostic and that's why this function adds a stars bonus. As
+ * of Sprint 28, base interest is `prestige × stars`, so star priority is
+ * already baked into the base. The board-score function now mainly:
+ *   1. Adds a small stars bonus (25) to nudge ties between equal-base
+ *      recruits toward the higher-star one, which still matters because
+ *      the floor penalty wipes some 5-star bases to zero on low-prestige
+ *      programs and the remaining 4-stars at those programs all score
+ *      similarly.
  *   2. Adds deterministic per-(team, recruit) jitter to break ties on
  *      lower-tier recruits so they distribute across teams instead of
  *      clustering on id-sorted slices.
@@ -87,7 +117,9 @@ export function computeBaseInterest(
  * so Sprint 13 commit-resolution semantics (interest^5 weighting,
  * shouldDecide thresholds) are unchanged.
  */
-export const STAR_BOARD_BONUS = 80;
+// Sprint 28: with the new `prestige × stars` base, the star bonus no longer
+// has to forcibly separate tiers — it just nudges ties. Lower from 80 to 25.
+export const STAR_BOARD_BONUS = 25;
 export const BOARD_JITTER_RANGE = 40;
 
 export function computeBoardScore(

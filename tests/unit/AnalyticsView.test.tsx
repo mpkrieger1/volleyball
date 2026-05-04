@@ -3,6 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { AnalyticsView } from '../../app/src/screens/AnalyticsView';
 import { useAnalyticsStore } from '../../app/src/store/useAnalyticsStore';
 import { useSaveSlotsStore } from '../../app/src/store/useSaveSlotsStore';
+import { useUserTeamStore } from '../../app/src/store/useUserTeamStore';
+import { fireEvent } from '@testing-library/react';
 
 // Recharts uses ResponsiveContainer which needs a parent with a fixed
 // width/height in jsdom. Mock it to render children directly.
@@ -146,6 +148,59 @@ function setupVcd() {
           },
         ],
       }),
+      seasonAnalytics: vi.fn().mockResolvedValue({
+        ok: true,
+        team: {
+          teamId: 't-1',
+          teamAbbr: 'ALPH',
+          teamSchool: 'Alpha',
+          seasonYear: 2026,
+          matchesPlayed: 4,
+          wins: 3,
+          losses: 1,
+          setsWon: 12,
+          setsLost: 5,
+          teamHittingPctMilli: 285,
+          oppHittingPctMilli: 198,
+          totalKills: 220,
+          totalAces: 22,
+          totalBlocks: 35,
+          totalDigs: 180,
+        },
+        trend: [
+          {
+            matchId: 'm-1',
+            weekIndex: 5,
+            isoDate: '2026-09-26',
+            opponentAbbr: 'BETA',
+            isHome: true,
+            setsWon: 3,
+            setsLost: 1,
+            hittingPctMilli: 310,
+            oppHittingPctMilli: 220,
+            kills: 60,
+            oppKills: 40,
+          },
+        ],
+        players: [
+          {
+            playerId: 'p1',
+            playerName: 'Anna A',
+            position: 'OH',
+            setsPlayed: 17,
+            matchesPlayed: 4,
+            kills: 80,
+            errors: 18,
+            totalAttacks: 200,
+            hittingPctMilli: 310,
+            killsPerSetMilli: 4700,
+            digs: 24,
+            blocks: 8,
+            aces: 6,
+            assists: 0,
+          },
+        ],
+      }),
     },
     schedule: {} as Window['vcd']['schedule'],
     season: {} as Window['vcd']['season'],
@@ -166,6 +221,7 @@ beforeEach(() => {
   setupVcd();
   useAnalyticsStore.getState().reset();
   useSaveSlotsStore.setState({ slots: [], status: 'idle', error: null, openedSlotId: 'slot-1' });
+  useUserTeamStore.setState({ userTeamId: 't-1', status: 'ready', error: null });
 });
 
 describe('<AnalyticsView />', () => {
@@ -183,6 +239,17 @@ describe('<AnalyticsView />', () => {
     expect(screen.getByLabelText(/Reception grade distribution per player/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Serve location heat map/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Rally length distribution/i)).toBeInTheDocument();
+  });
+
+  it('toggling to Season mode renders the team summary card row + leaders table', async () => {
+    render(<AnalyticsView />);
+    await waitFor(() => screen.getByLabelText(/Hitting percentage by rotation/i), { timeout: 5000 });
+    fireEvent.click(screen.getByTestId('analytics-mode-season'));
+    await waitFor(() => {
+      expect(screen.getByTestId('season-analytics-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('season-trend-table')).toBeInTheDocument();
+      expect(screen.getByText('Anna A')).toBeInTheDocument();
+    });
   });
 
   it('shows error alert when listRecentMatches fails', async () => {

@@ -188,6 +188,7 @@ export function registerStandingsHandlers(deps: SaveSlotServiceDeps): void {
               rank: idx + 1,
               playerId: agg.playerId,
               playerName: player ? `${player.firstName} ${player.lastName}` : '?',
+              teamId: team?.id ?? player?.teamId ?? '',
               teamAbbr: team?.abbr ?? '?',
               position: player?.position ?? '?',
               value,

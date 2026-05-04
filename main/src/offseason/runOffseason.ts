@@ -348,6 +348,177 @@ export async function runOffseason(input: RunOffseasonInput): Promise<RunOffseas
           })),
         });
 
+        // Sprint 28 Task 28.4: coach lifecycle. Plan retirements / poaching /
+        // contract expiries; apply removals; fill open slots from the pool.
+        // HC must always be filled — if a team's HC departed and the pool
+        // can't supply one, we promote the highest-rated AHC on that team.
+        const allCoaches = await tx.coach.findMany({
+          where: { teamId: { not: null } },
+          select: {
+            id: true,
+            teamId: true,
+            role: true,
+            contractYears: true,
+            ratingRecruit: true,
+            ratingDevelop: true,
+            ratingStrategy: true,
+          },
+        });
+        const lifecycleRng = createRng(`coach-lifecycle:${seasonYear + 1}`);
+        const turnover = coaching.planTurnover(
+          allCoaches.map((c) => ({
+            id: c.id,
+            teamId: c.teamId!,
+            role: c.role as 'HC' | 'AHC' | 'AC',
+            contractYears: c.contractYears,
+            ratingRecruit: c.ratingRecruit,
+            ratingDevelop: c.ratingDevelop,
+            ratingStrategy: c.ratingStrategy,
+          })),
+          lifecycleRng.fork('turnover'),
+        );
+
+        // Apply retirements / poaches / fire-expired (all remove the coach).
+        const removedIds: string[] = [];
+        const renewedIds: string[] = [];
+        for (const a of turnover) {
+          if (a.kind === 'fill') continue; // planTurnover doesn't emit fill, but narrow defensively
+          if (a.kind === 'renew') {
+            renewedIds.push(a.coachId);
+          } else {
+            removedIds.push(a.coachId);
+          }
+        }
+        if (removedIds.length > 0) {
+          await tx.coach.deleteMany({ where: { id: { in: removedIds } } });
+        }
+        // Renew contracts (set contractYears back to e.g. 3).
+        for (const id of renewedIds) {
+          await tx.coach.update({ where: { id }, data: { contractYears: 3 } });
+        }
+        // Decrement contractYears on coaches NOT touched by turnover (still
+        // under existing contract).
+        const touched = new Set([...removedIds, ...renewedIds]);
+        for (const c of allCoaches) {
+          if (touched.has(c.id)) continue;
+          if (c.contractYears > 1) {
+            await tx.coach.update({
+              where: { id: c.id },
+              data: { contractYears: c.contractYears - 1 },
+            });
+          }
+        }
+
+        // Identify open slots: each team needs HC, AHC, AC.
+        const expectedRoles: Array<'HC' | 'AHC' | 'AC'> = ['HC', 'AHC', 'AC'];
+        const remainingByTeamRole = new Map<string, Set<string>>();
+        for (const c of allCoaches) {
+          if (touched.has(c.id) && removedIds.includes(c.id)) continue;
+          const key = `${c.teamId}:${c.role}`;
+          if (!remainingByTeamRole.has(key)) remainingByTeamRole.set(key, new Set());
+          remainingByTeamRole.get(key)!.add(c.id);
+        }
+        const openSlots: Array<{ teamId: string; role: 'HC' | 'AHC' | 'AC' }> = [];
+        for (const t of teams) {
+          for (const role of expectedRoles) {
+            const filled = remainingByTeamRole.get(`${t.id}:${role}`);
+            if (!filled || filled.size === 0) {
+              openSlots.push({ teamId: t.id, role });
+            }
+          }
+        }
+
+        // Read the freshly-inserted hiring pool for fill plans.
+        const poolRows = await tx.coachingPool.findMany({
+          select: {
+            id: true,
+            ratingRecruit: true,
+            ratingDevelop: true,
+            ratingStrategy: true,
+            preferredRole: true,
+            askingSalaryCents: true,
+            ageYears: true,
+          },
+        });
+        const fills = coaching.planFills(
+          openSlots,
+          poolRows.map((p) => ({
+            id: p.id,
+            ratingRecruit: p.ratingRecruit,
+            ratingDevelop: p.ratingDevelop,
+            ratingStrategy: p.ratingStrategy,
+            preferredRole: p.preferredRole as 'HC' | 'AHC' | 'AC',
+            askingSalaryCents: p.askingSalaryCents,
+            ageYears: p.ageYears,
+          })),
+          lifecycleRng.fork('fills'),
+        );
+
+        // Apply fills: create Coach rows from pool entries, then delete
+        // those pool entries (they've signed somewhere).
+        const usedPoolIds: string[] = [];
+        for (const f of fills) {
+          if (f.kind !== 'fill') continue;
+          const cand = poolRows.find((p) => p.id === f.fromPoolId);
+          if (!cand) continue;
+          const poolFull = await tx.coachingPool.findUnique({ where: { id: cand.id } });
+          if (!poolFull) continue;
+          await tx.coach.create({
+            data: {
+              firstName: poolFull.firstName,
+              lastName: poolFull.lastName,
+              role: f.role,
+              teamId: f.teamId,
+              ratingRecruit: poolFull.ratingRecruit,
+              ratingDevelop: poolFull.ratingDevelop,
+              ratingStrategy: poolFull.ratingStrategy,
+              salary: poolFull.askingSalaryCents,
+              hireSeason: seasonYear + 1,
+              contractYears: 3,
+            },
+          });
+          usedPoolIds.push(cand.id);
+        }
+        if (usedPoolIds.length > 0) {
+          await tx.coachingPool.deleteMany({ where: { id: { in: usedPoolIds } } });
+        }
+
+        // Final HC backfill safety: any team still missing an HC?
+        // Promote the highest-rated remaining assistant on that team.
+        for (const t of teams) {
+          const hc = await tx.coach.findFirst({ where: { teamId: t.id, role: 'HC' } });
+          if (hc) continue;
+          const candidate = await tx.coach.findFirst({
+            where: { teamId: t.id },
+            orderBy: { ratingStrategy: 'desc' },
+          });
+          if (candidate) {
+            await tx.coach.update({
+              where: { id: candidate.id },
+              data: { role: 'HC' },
+            });
+            // The role they vacated stays open until the next offseason.
+          } else {
+            // Unrecoverable: synthesize a generic placeholder HC. This
+            // should be unreachable given the ≥100 pool size, but the
+            // invariant must hold.
+            await tx.coach.create({
+              data: {
+                firstName: 'Interim',
+                lastName: 'Coach',
+                role: 'HC',
+                teamId: t.id,
+                ratingRecruit: 50,
+                ratingDevelop: 50,
+                ratingStrategy: 50,
+                salary: 0,
+                hireSeason: seasonYear + 1,
+                contractYears: 1,
+              },
+            });
+          }
+        }
+
         // Advance to PRESEASON of next year.
         await tx.season.update({
           where: { id: season.id },

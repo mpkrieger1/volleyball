@@ -47,6 +47,7 @@ export const StatLeaderRow = z.object({
   rank: z.number().int().positive(),
   playerId: z.string(),
   playerName: z.string(),
+  teamId: z.string(), // Sprint 28: needed for renderer-side conference scoping
   teamAbbr: z.string(),
   position: z.string(),
   /** Raw stat value (kills, assists, etc.). */

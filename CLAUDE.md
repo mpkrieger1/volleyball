@@ -88,9 +88,9 @@ Before opening a PR: `npm run lint && npm run typecheck && npm run test && npm r
 
 ## Critical rules
 
-### 1. FCCD is reference only — never copy
+### 1. FCCD is reference — personal-use project
 
-Football Coach: College Dynasty is installed locally and some of its files are unpacked on disk (see PRD §6.1). **Read it to understand patterns. Do not copy source, assets, strings, or `.asar` contents into VCD.** Every line of VCD must be authored independently (clean-room). If a proposed change pulls in FCCD text, schema field names verbatim, or asset files, stop and flag it.
+VCD is a personal/non-commercial project (Matt, single dev, never sold). Football Coach: College Dynasty is installed locally and may be referenced freely as a design source for layout, copy patterns, info hierarchy, interaction model, and inputs. The clean-room rule that previously appeared here was based on commercial-distribution risk that does not apply. Do not redistribute FCCD assets even so — keep raw asset files (PNGs, audio, fonts, `.asar` contents) out of the VCD repo. Reproducing screen designs, copying field names, mirroring flows, etc. is fine.
 
 ### 2. Determinism
 
@@ -108,7 +108,8 @@ These are tested in CI; treat a violation as a P0 bug, not a test bug.
 - PBP log replayed through the pure reducer reproduces the box score exactly.
 - No player exists on two teams' rosters at the same tick.
 - No team scheduled for two matches on the same date.
-- Every team in a conference plays every other member exactly twice per regular season.
+- Every team plays exactly 10 non-conference games before any conference games begin (Sprint 28: weeks 0–4 are non-con only; weeks 5–13 are conference only).
+- Conference game count per team ≤ 18, generated via capped circle-method (`MAX_CONF_ROUNDS_PER_TEAM = 9` then mirror). Even-sized confs ≥10 give every team exactly 18; odd-sized confs ≥10 give most teams 18 with a small (≤2-game) asymmetry from the bye rotation; confs <10 play full double round-robin = `(N−1) × 2` games (Sprint 28).
 - Every tournament outcome is persisted in a `Match` row with `isTournament = true`.
 - Every team has an HC slot filled at every tick (auto-backfill on vacancy).
 

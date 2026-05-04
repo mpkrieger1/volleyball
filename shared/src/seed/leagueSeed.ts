@@ -71,7 +71,44 @@ type SeededCoach = {
   ratingRecruit: number;
   ratingDevelop: number;
   ratingStrategy: number;
+  /** Sprint 28: per-role contract value in cents. */
+  salaryCents: number;
+  /** Sprint 28: contract length in years (1..5 typical). */
+  contractYears: number;
 };
+
+/**
+ * Sprint 28: derive a coach's contract value (salary + years) from role
+ * and team prestige. Salaries are modeled on NCAA Division-I women's
+ * volleyball pay scales — top programs ($300k+ HC) down to mid-majors
+ * ($80–150k HC). Assistants land at 30–60% of HC pay. Returned in cents
+ * per CLAUDE.md money convention.
+ *
+ *   HC  : base $60k + prestige × $3k  (prestige 30 ≈ $150k, 55 ≈ $225k, 92 ≈ $336k)
+ *   AHC : base $30k + prestige × $1k  (prestige 30 ≈ $60k,  55 ≈ $85k,  92 ≈ $122k)
+ *   AC  : base $25k + prestige × $500 (prestige 30 ≈ $40k,  55 ≈ $52k,  92 ≈ $71k)
+ *
+ * Contract years: HC 4, AHC 3, AC 2 (uniform; offseason logic varies them
+ * via renewals later).
+ */
+export function deriveCoachContract(
+  role: 'HC' | 'AHC' | 'AC',
+  prestige: number,
+): { salaryCents: number; contractYears: number } {
+  let dollars = 0;
+  let years = 1;
+  if (role === 'HC') {
+    dollars = 60_000 + prestige * 3_000;
+    years = 4;
+  } else if (role === 'AHC') {
+    dollars = 30_000 + prestige * 1_000;
+    years = 3;
+  } else {
+    dollars = 25_000 + prestige * 500;
+    years = 2;
+  }
+  return { salaryCents: Math.round(dollars * 100), contractYears: years };
+}
 
 /**
  * Generate a deterministic HC per team. Teams are passed AFTER Prisma has
@@ -88,6 +125,7 @@ export function buildHeadCoachesForTeams(
     const stratRng = rng.fork('strategy');
     const first = weightedPick(firstRng, FIRST_NAMES);
     const last = weightedPick(lastRng, LAST_NAMES);
+    const contract = deriveCoachContract('HC', t.prestige);
     return {
       firstName: first.name,
       lastName: last.name,
@@ -96,6 +134,8 @@ export function buildHeadCoachesForTeams(
       ratingRecruit: deriveCoachRecruitRating(t.abbr, t.prestige),
       ratingDevelop: Math.max(30, Math.min(95, t.prestige + devRng.int(-15, 15))),
       ratingStrategy: Math.max(30, Math.min(95, t.prestige + stratRng.int(-15, 15))),
+      salaryCents: contract.salaryCents,
+      contractYears: contract.contractYears,
     };
   });
 }
@@ -123,6 +163,7 @@ export function buildStaffForTeams(
       const last = weightedPick(lastRng, LAST_NAMES);
       // AHC slightly stronger than AC (lead assistant).
       const tilt = role === 'AHC' ? 0 : -5;
+      const contract = deriveCoachContract(role, t.prestige);
       out.push({
         firstName: first.name,
         lastName: last.name,
@@ -131,6 +172,8 @@ export function buildStaffForTeams(
         ratingRecruit: Math.max(25, Math.min(90, t.prestige + tilt + recRng.int(-18, 18))),
         ratingDevelop: Math.max(25, Math.min(90, t.prestige + tilt + devRng.int(-18, 18))),
         ratingStrategy: Math.max(25, Math.min(90, t.prestige + tilt + stratRng.int(-18, 18))),
+        salaryCents: contract.salaryCents,
+        contractYears: contract.contractYears,
       });
     }
   }
@@ -242,12 +285,18 @@ export async function seedLeagueInto(
         ratingRecruit: c.ratingRecruit,
         ratingDevelop: c.ratingDevelop,
         ratingStrategy: c.ratingStrategy,
+        // Sprint 28: real contract values seeded from role + prestige.
+        // The Player schema stores `salary` (cents). hireSeason defaults
+        // to 2026 in the schema.
+        salary: c.salaryCents,
+        contractYears: c.contractYears,
       })),
     });
   }
 
-  // Sprint 14: seed 12 players per team. Chunked createMany to avoid
-  // SQLite parameter limits at ~4,320 rows × ~12 columns each.
+  // Sprint 14 / Sprint 28: seed 17 players per team (NCAA-realistic
+  // composition; matches MAX_ROSTER_SIZE). Chunked createMany to avoid
+  // SQLite parameter limits.
   const playerRows: Array<{
     teamId: string;
     firstName: string;

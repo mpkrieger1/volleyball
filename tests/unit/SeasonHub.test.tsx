@@ -31,7 +31,9 @@ function setupVcd(opts: { season?: { phase: string; currentWeek: number } } = {}
         teams: [makeTeam('t-1', 'Stanford', 'STAN'), makeTeam('t-2', 'Wisconsin', 'WISC')],
       }),
     } as unknown as Window['vcd']['match'],
-    schedule: {} as Window['vcd']['schedule'],
+    schedule: {
+      listForTeam: vi.fn().mockResolvedValue({ ok: true, rows: [] }),
+    } as unknown as Window['vcd']['schedule'],
     season: {
       getCurrentWeek: vi.fn().mockResolvedValue({
         ok: true,
@@ -47,7 +49,17 @@ function setupVcd(opts: { season?: { phase: string; currentWeek: number } } = {}
     poll: {} as Window['vcd']['poll'],
     bracket: {} as Window['vcd']['bracket'],
     postseason: {} as Window['vcd']['postseason'],
-    recruiting: {} as Window['vcd']['recruiting'],
+    recruiting: {
+      budget: vi.fn().mockResolvedValue({
+        ok: true,
+        total: 30,
+        spent: 0,
+        remaining: 30,
+        breakdown: { base: 20, hc: 10, ahc: 0, ac: 0 },
+        week: 0,
+      }),
+      teamNeeds: vi.fn().mockResolvedValue({ ok: true, needs: [] }),
+    } as unknown as Window['vcd']['recruiting'],
     portal: {} as Window['vcd']['portal'],
     nil: {} as Window['vcd']['nil'],
     offseason: {} as Window['vcd']['offseason'],

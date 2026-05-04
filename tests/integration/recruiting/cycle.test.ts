@@ -67,7 +67,7 @@ describe('recruiting cycle (integration, small class)', () => {
       dbPath,
       teamId: team!.id,
       recruitId: recruit!.id,
-      action: 'CALL',
+      action: 'PHONE_CALL',
     });
     expect(r.ok).toBe(true);
     if (r.ok) {
@@ -82,20 +82,20 @@ describe('recruiting cycle (integration, small class)', () => {
       where: { commitState: 'PENDING' },
       select: { id: true },
     });
-    // Max out the budget with OFFICIAL_VISITs (15 each → 3 fits, 4th fails).
-    for (let i = 0; i < 3; i++) {
+    // Max out the budget with OFFER_SCHOLARSHIPs (15 each → fits a few, then fails).
+    for (let i = 0; i < 5; i++) {
       await performAction({
         dbPath,
         teamId: team!.id,
         recruitId: recruit!.id,
-        action: 'OFFICIAL_VISIT',
+        action: 'OFFER_SCHOLARSHIP',
       });
     }
     const rejected = await performAction({
       dbPath,
       teamId: team!.id,
       recruitId: recruit!.id,
-      action: 'OFFICIAL_VISIT',
+      action: 'OFFER_SCHOLARSHIP',
     });
     expect(rejected.ok).toBe(false);
     if (!rejected.ok) expect(rejected.code).toBe('INSUFFICIENT_BUDGET');

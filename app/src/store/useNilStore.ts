@@ -9,6 +9,9 @@ type NilState = {
   remaining: number;
   enthusiasm: number;
   roster: NilRow[];
+  /** Sprint 28: server-confirmed gate for the NIL window. */
+  phase: string;
+  isOpen: boolean;
   status: 'idle' | 'loading' | 'working' | 'ready' | 'error';
   error: string | null;
   load: (slotId: string, teamId: string) => Promise<void>;
@@ -23,6 +26,8 @@ export const useNilStore = create<NilState>((set, get) => ({
   remaining: 0,
   enthusiasm: 50,
   roster: [],
+  phase: 'PRESEASON',
+  isOpen: true,
   status: 'idle',
   error: null,
   async load(slotId, teamId) {
@@ -38,6 +43,8 @@ export const useNilStore = create<NilState>((set, get) => ({
       remaining: res.remaining,
       enthusiasm: res.enthusiasm,
       roster: res.roster,
+      phase: res.phase,
+      isOpen: res.isOpen,
       status: 'ready',
     });
   },

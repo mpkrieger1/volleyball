@@ -53,13 +53,33 @@ export function registerScheduleHandlers(deps: SaveSlotServiceDeps): void {
             OR: [{ homeTeamId: req.teamId }, { awayTeamId: req.teamId }],
           },
           orderBy: [{ date: 'asc' }],
-          include: { homeTeam: true, awayTeam: true },
+          include: {
+            homeTeam: true,
+            awayTeam: true,
+            // Sprint 28: include Set rows so we can derive sets-won counts
+            // for completed matches. Persisted by simulateAndPersist via
+            // the per-set scoreboard.
+            sets: { select: { home: true, away: true } },
+          },
         });
         return {
           ok: true as const,
           rows: rows.map((m) => {
             const isHome = m.homeTeamId === req.teamId;
             const opp = isHome ? m.awayTeam : m.homeTeam;
+            // Sprint 28: derive sets won from the Set rows. Returns null
+            // when match is unplayed (winnerId === null) so the renderer
+            // can render "—" instead of "0–0".
+            let homeSetsWon: number | null = null;
+            let awaySetsWon: number | null = null;
+            if (m.winnerId) {
+              homeSetsWon = 0;
+              awaySetsWon = 0;
+              for (const s of m.sets) {
+                if (s.home > s.away) homeSetsWon += 1;
+                else if (s.away > s.home) awaySetsWon += 1;
+              }
+            }
             return {
               matchId: m.id,
               weekIndex: m.week,
@@ -72,6 +92,9 @@ export function registerScheduleHandlers(deps: SaveSlotServiceDeps): void {
               isTournament: m.isTournament,
               isNeutralSite: m.isNeutralSite,
               winnerId: m.winnerId,
+              homeSetsWon,
+              awaySetsWon,
+              tournamentRound: m.tournamentRound,
             };
           }),
         };

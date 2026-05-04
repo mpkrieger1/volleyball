@@ -47,13 +47,41 @@ describe('computeBaseInterest', () => {
     expect(match - noMatch).toBe(recruiting.REGION_BONUS);
   });
 
-  it('star difficulty is currently disabled — same-team base does not drop for higher stars', () => {
-    // Sprint 13 decision: "pickiness" is modeled in shouldDecide, not in
-    // base interest. Keep this test to lock the current behavior.
-    const t = mkTeam();
+  it('higher stars score MORE at high-prestige programs (prestige × stars)', () => {
+    // Sprint 28: blue-blood pursues 5-stars more aggressively than 2-stars.
+    const t = mkTeam({ prestige: 90, coachRatingRecruit: 85 });
     const fiveStar = recruiting.computeBaseInterest(mkRecruit({ stars: 5 }), t);
     const twoStar = recruiting.computeBaseInterest(mkRecruit({ stars: 2 }), t);
-    expect(fiveStar).toBe(twoStar);
+    expect(fiveStar).toBeGreaterThan(twoStar);
+  });
+
+  it('low-prestige programs (e.g. Davidson) get ZERO interest from 5-star recruits', () => {
+    // Sprint 28: the user-reported bug. Davidson prestige 45 should not
+    // appear on a 5-star's "competing schools" list at all.
+    const davidson = mkTeam({ prestige: 45, region: 'EAST', coachRatingRecruit: 55 });
+    const fiveStar = mkRecruit({ stars: 5, hometownRegion: 'EAST' });
+    const score = recruiting.computeBaseInterest(fiveStar, davidson);
+    expect(score).toBe(0);
+  });
+
+  it('star floor allows 4-star interest at mid-major prestige but penalizes the gap', () => {
+    const midMajor = mkTeam({ prestige: 45, region: 'EAST' });
+    const fourStar = mkRecruit({ stars: 4, hometownRegion: 'EAST' });
+    const score = recruiting.computeBaseInterest(fourStar, midMajor);
+    expect(score).toBeGreaterThan(0); // not blocked
+    expect(score).toBeLessThan(200);   // but penalized vs. high-prestige peers
+  });
+
+  it('star floor passes through cleanly when prestige meets the floor', () => {
+    const t = mkTeam({ prestige: 70 });
+    const fiveStar = recruiting.computeBaseInterest(mkRecruit({ stars: 5 }), t);
+    expect(fiveStar).toBeGreaterThanOrEqual(70 * 5); // no floor penalty
+  });
+
+  it('low-prestige low-star is not penalized (floors only apply upward)', () => {
+    const lowMajor = mkTeam({ prestige: 25 });
+    const oneStar = recruiting.computeBaseInterest(mkRecruit({ stars: 1 }), lowMajor);
+    expect(oneStar).toBeGreaterThan(0);
   });
 
   it('prior commits at the same position reduce interest (saturation)', () => {
@@ -73,18 +101,18 @@ describe('computeBaseInterest', () => {
 describe('applyActionDelta', () => {
   it('increases interest by the action delta', () => {
     const before = 100;
-    const after = recruiting.applyActionDelta(before, 'CALL');
-    expect(after).toBe(before + recruiting.RECRUITING_ACTIONS.CALL.delta);
+    const after = recruiting.applyActionDelta(before, 'PHONE_CALL');
+    expect(after).toBe(before + recruiting.RECRUITING_ACTIONS.PHONE_CALL.delta);
   });
 
   it('clamps to MAX_INTEREST', () => {
     const before = 990;
-    const after = recruiting.applyActionDelta(before, 'OFFICIAL_VISIT');
+    const after = recruiting.applyActionDelta(before, 'OFFER_SCHOLARSHIP');
     expect(after).toBe(recruiting.MAX_INTEREST);
   });
 
   it('never goes below zero', () => {
-    const after = recruiting.applyActionDelta(0, 'CALL');
+    const after = recruiting.applyActionDelta(0, 'PHONE_CALL');
     expect(after).toBeGreaterThanOrEqual(0);
   });
 });
@@ -152,11 +180,16 @@ describe('computeBoardScore (Sprint 25)', () => {
 });
 
 describe('RECRUITING_ACTIONS shape', () => {
-  it('all 4 action types defined', () => {
+  it('every action type defined; non-scout actions have a positive delta', () => {
     for (const t of recruiting.RECRUITING_ACTION_TYPES) {
       const def = recruiting.RECRUITING_ACTIONS[t];
       expect(def.cost).toBeGreaterThan(0);
-      expect(def.delta).toBeGreaterThan(0);
+      // Sprint 28: SCOUT is scoutOnly with delta 0; all others move interest.
+      if (def.scoutOnly) {
+        expect(def.delta).toBe(0);
+      } else {
+        expect(def.delta).toBeGreaterThan(0);
+      }
     }
   });
 

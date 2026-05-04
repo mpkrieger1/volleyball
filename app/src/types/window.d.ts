@@ -14,6 +14,7 @@ import type {
   awardsIpc,
   scoutIpc,
   standingsIpc,
+  rosterIpc,
 } from '@vcd/shared';
 
 declare global {
@@ -57,6 +58,10 @@ declare global {
         slotId: string,
         limit?: number,
       ): Promise<matchIpc.ListRecentMatchesResponse>;
+      seasonAnalytics(
+        slotId: string,
+        teamId: string,
+      ): Promise<matchIpc.SeasonAnalyticsResponse>;
     };
     schedule: {
       generate(req: {
@@ -117,6 +122,13 @@ declare global {
       ): Promise<recruitingIpc.AdvanceResponse>;
       close(slotId: string): Promise<recruitingIpc.CloseResponse>;
       state(slotId: string, teamId: string): Promise<recruitingIpc.StateResponse>;
+      budget(slotId: string, teamId: string): Promise<recruitingIpc.BudgetResponse>;
+      teamNeeds(slotId: string, teamId: string): Promise<recruitingIpc.TeamNeedsResponse>;
+      detail(
+        slotId: string,
+        teamId: string,
+        recruitId: string,
+      ): Promise<recruitingIpc.DetailResponse>;
     };
     portal: {
       open(slotId: string): Promise<portalIpc.OpenResponse>;
@@ -196,6 +208,10 @@ declare global {
     };
     standings: {
       getOverview(slotId: string): Promise<standingsIpc.StandingsOverviewResponse>;
+    };
+    roster: {
+      listForTeam(slotId: string, teamId: string): Promise<rosterIpc.ListRosterResponse>;
+      getProfile(slotId: string, playerId: string): Promise<rosterIpc.GetPlayerProfileResponse>;
     };
     crash: {
       // Sprint 23: report a renderer-side error to the main-process crash log.

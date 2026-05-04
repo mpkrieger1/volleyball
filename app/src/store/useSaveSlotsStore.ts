@@ -15,6 +15,14 @@ export type SaveSlotsState = {
    */
   create: (name: string) => Promise<string | null>;
   open: (id: string) => Promise<void>;
+  /**
+   * Sprint 28: close the currently-opened slot and return to the save-slots
+   * screen. SQLite persists every write inline, so "saving" is implicit;
+   * this just clears `openedSlotId`. Callers should reset downstream stores
+   * (user-team, season, etc.) to avoid stale data leaking into the next
+   * opened slot.
+   */
+  close: () => void;
   remove: (id: string) => Promise<void>;
 };
 
@@ -52,6 +60,10 @@ export const useSaveSlotsStore = create<SaveSlotsState>((set, get) => ({
       return;
     }
     set({ openedSlotId: res.slot.id, error: null });
+  },
+
+  close() {
+    set({ openedSlotId: null, error: null });
   },
 
   async remove(id) {

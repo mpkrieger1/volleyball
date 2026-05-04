@@ -1,6 +1,6 @@
 // Sprint 14: initial roster generator for new save-slot DBs.
 //
-// Each team gets 12 players distributed 3-3-3-3 across FR/SO/JR/SR class
+// Each team gets 17 players (Sprint 28 composition; see POSITION_MIX) with class
 // years. Position mix: 4 OH, 3 MB, 2 OPP, 1 S, 1 L, 1 DS. Ratings scale
 // with team prestige (higher prestige = higher mean rating).
 
@@ -44,19 +44,33 @@ export type GeneratedPlayer = {
   isLibero: boolean;
 };
 
+// Sprint 28: NCAA-realistic 17-player roster composition. Each skill
+// position has a starter + backup at minimum, plus depth where it's
+// most needed (OH and MB rotate front/back row regularly so 4 each
+// gives meaningful 2-deep coverage; OPP gets 3 since the position is
+// front-row-heavy). DS rounds out the 17-player cap.
+//   S   : 2 (starter + backup)
+//   OH  : 4 (starter + backup + 2 more)
+//   MB  : 4 (starter + backup + 2 more)
+//   OPP : 3 (starter + backup + 1 more)
+//   L   : 2 (starter + backup)
+//   DS  : 2 (back-row utility)
+//   total = 17 (matches MAX_ROSTER_SIZE)
 const POSITION_MIX: Array<{ position: Position; count: number }> = [
   { position: 'OH', count: 4 },
-  { position: 'MB', count: 3 },
-  { position: 'OPP', count: 2 },
-  { position: 'S', count: 1 },
-  { position: 'L', count: 1 },
-  { position: 'DS', count: 1 },
+  { position: 'MB', count: 4 },
+  { position: 'OPP', count: 3 },
+  { position: 'S', count: 2 },
+  { position: 'L', count: 2 },
+  { position: 'DS', count: 2 },
 ];
 
 const CLASS_YEARS: ClassYear[] = ['FR', 'SO', 'JR', 'SR'];
 
 /**
- * Generate 12 deterministic players for a team.
+ * Generate 17 deterministic players for a team. Composition matches
+ * NCAA-realistic depth (see POSITION_MIX above) and lands exactly at
+ * MAX_ROSTER_SIZE (Sprint 28).
  */
 export function generateRosterForTeam(
   teamAbbr: string,
@@ -66,8 +80,9 @@ export function generateRosterForTeam(
   const out: GeneratedPlayer[] = [];
   const usedJerseys = new Set<number>();
 
-  // Build the 12 slots: each position gets its count, with class-year
-  // rotation to hit 3 per class year across 12 total slots.
+  // Build the 17 slots: each position gets its count from POSITION_MIX,
+  // with class-year rotation cycling through FR/SO/JR/SR to spread
+  // talent across years (Sprint 28).
   const slots: Array<{ position: Position }> = [];
   for (const p of POSITION_MIX) {
     for (let i = 0; i < p.count; i++) slots.push({ position: p.position });

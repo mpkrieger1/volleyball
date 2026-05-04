@@ -15,6 +15,7 @@ import {
   awardsIpc,
   scoutIpc,
   standingsIpc,
+  rosterIpc,
 } from '@vcd/shared';
 
 const api = Object.freeze({
@@ -40,6 +41,8 @@ const api = Object.freeze({
       ipcRenderer.invoke(matchIpc.MATCH_IPC_CHANNELS.getAnalytics, { slotId, matchId }),
     listRecentMatches: (slotId: string, limit?: number) =>
       ipcRenderer.invoke(matchIpc.MATCH_IPC_CHANNELS.listRecentMatches, { slotId, limit }),
+    seasonAnalytics: (slotId: string, teamId: string) =>
+      ipcRenderer.invoke(matchIpc.MATCH_IPC_CHANNELS.seasonAnalytics, { slotId, teamId }),
   },
   schedule: {
     generate: (req: { slotId: string; seasonYear: number; seed: number | string }) =>
@@ -110,6 +113,16 @@ const api = Object.freeze({
       ipcRenderer.invoke(recruitingIpc.RECRUITING_IPC_CHANNELS.close, { slotId }),
     state: (slotId: string, teamId: string) =>
       ipcRenderer.invoke(recruitingIpc.RECRUITING_IPC_CHANNELS.state, { slotId, teamId }),
+    budget: (slotId: string, teamId: string) =>
+      ipcRenderer.invoke(recruitingIpc.RECRUITING_IPC_CHANNELS.budget, { slotId, teamId }),
+    teamNeeds: (slotId: string, teamId: string) =>
+      ipcRenderer.invoke(recruitingIpc.RECRUITING_IPC_CHANNELS.teamNeeds, { slotId, teamId }),
+    detail: (slotId: string, teamId: string, recruitId: string) =>
+      ipcRenderer.invoke(recruitingIpc.RECRUITING_IPC_CHANNELS.detail, {
+        slotId,
+        teamId,
+        recruitId,
+      }),
   },
   portal: {
     open: (slotId: string) =>
@@ -185,6 +198,12 @@ const api = Object.freeze({
   standings: {
     getOverview: (slotId: string) =>
       ipcRenderer.invoke(standingsIpc.STANDINGS_IPC_CHANNELS.getOverview, { slotId }),
+  },
+  roster: {
+    listForTeam: (slotId: string, teamId: string) =>
+      ipcRenderer.invoke(rosterIpc.ROSTER_IPC_CHANNELS.listForTeam, { slotId, teamId }),
+    getProfile: (slotId: string, playerId: string) =>
+      ipcRenderer.invoke(rosterIpc.ROSTER_IPC_CHANNELS.getProfile, { slotId, playerId }),
   },
   crash: {
     report: (payload: {

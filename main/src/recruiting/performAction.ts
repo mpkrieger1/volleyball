@@ -44,15 +44,26 @@ export async function performAction(
     }
 
     const def = recruiting.RECRUITING_ACTIONS[input.action];
+
+    // Sprint 28: budget pulls from team-staff-scaled total.
+    const staff = await client.coach.findMany({
+      where: { teamId: input.teamId },
+      select: { role: true, ratingRecruit: true },
+    });
+    const hcRecruit = staff.find((c) => c.role === 'HC')?.ratingRecruit ?? null;
+    const ahcRecruit = staff.find((c) => c.role === 'AHC')?.ratingRecruit ?? null;
+    const acRecruit = staff.find((c) => c.role === 'AC')?.ratingRecruit ?? null;
+    const budgetCalc = recruiting.deriveWeeklyBudget({ hcRecruit, ahcRecruit, acRecruit });
+
     const budget = await client.recruitingBudget.findUnique({
       where: { teamId_week: { teamId: input.teamId, week } },
     });
     const spent = budget?.pointsSpent ?? 0;
-    if (spent + def.cost > recruiting.WEEKLY_BUDGET) {
+    if (spent + def.cost > budgetCalc.total) {
       return {
         ok: false,
         code: 'INSUFFICIENT_BUDGET',
-        message: `Action costs ${def.cost}, only ${recruiting.WEEKLY_BUDGET - spent} remaining.`,
+        message: `Action costs ${def.cost}, only ${budgetCalc.total - spent} remaining.`,
       };
     }
 
@@ -60,7 +71,12 @@ export async function performAction(
       where: { recruitId_teamId: { recruitId: input.recruitId, teamId: input.teamId } },
     });
     const currentInterest = existing?.interest ?? 0;
-    const newInterest = recruiting.applyActionDelta(currentInterest, input.action);
+    const newInterest = def.scoutOnly
+      ? currentInterest
+      : recruiting.applyActionDelta(currentInterest, input.action);
+    const currentScoutLevel = existing?.scoutLevel ?? 0;
+    const newScoutLevel =
+      input.action === 'SCOUT' ? Math.min(3, currentScoutLevel + 1) : currentScoutLevel;
 
     await client.$transaction(
       async (tx) => {
@@ -73,10 +89,12 @@ export async function performAction(
             teamId: input.teamId,
             interest: newInterest,
             actionsSpent: 1,
+            scoutLevel: newScoutLevel,
           },
           update: {
             interest: newInterest,
             actionsSpent: (existing?.actionsSpent ?? 0) + 1,
+            scoutLevel: newScoutLevel,
           },
         });
         await tx.recruitingBudget.upsert({
@@ -97,7 +115,7 @@ export async function performAction(
     return {
       ok: true,
       newInterest,
-      budgetRemaining: recruiting.WEEKLY_BUDGET - (spent + def.cost),
+      budgetRemaining: budgetCalc.total - (spent + def.cost),
       week,
     };
   } finally {

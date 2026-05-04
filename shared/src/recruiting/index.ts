@@ -5,5 +5,6 @@ export * from './starDistribution';
 export * from './ratings';
 export * from './generator';
 export * from './actions';
+export * from './budget';
 export * from './interestModel';
 export * from './commitResolution';

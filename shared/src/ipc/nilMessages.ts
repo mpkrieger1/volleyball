@@ -6,6 +6,7 @@ const ErrCode = z.enum([
   'INSUFFICIENT_BUDGET',
   'BOOSTER_NOT_FOUND',
   'PLAYER_NOT_ON_TEAM',
+  'NIL_CLOSED',
   'INTERNAL',
 ]);
 const Err = z.object({
@@ -38,6 +39,11 @@ export const StateOk = z.object({
   remaining: z.number().int(),
   enthusiasm: z.number().int(),
   roster: z.array(NilRosterRowView),
+  /** Sprint 28: current Season.phase, surfaced so the renderer can gate the
+   * NIL UI without an extra IPC call. NIL is open during OFFSEASON /
+   * RECRUITING / PORTAL / PRESEASON; closed once REGULAR begins. */
+  phase: z.string(),
+  isOpen: z.boolean(),
 });
 export const StateResponse = z.discriminatedUnion('ok', [StateOk, Err]);
 export type StateResponse = z.infer<typeof StateResponse>;

@@ -12,15 +12,22 @@ export type AnalyticsCharts = {
   rallyLength: analytics.RallyLengthData;
 };
 
+export type AnalyticsMode = 'match' | 'season';
+type SeasonOk = Extract<matchIpc.SeasonAnalyticsResponse, { ok: true }>;
+
 type AnalyticsState = {
-  phase: 'idle' | 'loading-matches' | 'loading-analytics' | 'ready' | 'error';
+  phase: 'idle' | 'loading-matches' | 'loading-analytics' | 'loading-season' | 'ready' | 'error';
+  mode: AnalyticsMode;
   matches: Matches;
   selectedMatchId: string | null;
   data: Analytics | null;
   charts: AnalyticsCharts | null;
+  season: SeasonOk | null;
   error: string | null;
   loadMatches: (slotId: string) => Promise<void>;
   selectMatch: (slotId: string, matchId: string) => Promise<void>;
+  setMode: (mode: AnalyticsMode) => void;
+  loadSeason: (slotId: string, teamId: string) => Promise<void>;
   reset: () => void;
 };
 
@@ -61,10 +68,12 @@ function deriveCharts(payload: Analytics): AnalyticsCharts {
 
 export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
   phase: 'idle',
+  mode: 'match',
   matches: [],
   selectedMatchId: null,
   data: null,
   charts: null,
+  season: null,
   error: null,
   async loadMatches(slotId) {
     set({ phase: 'loading-matches', error: null });
@@ -89,13 +98,27 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
     }
     set({ data: res, charts: deriveCharts(res), phase: 'ready' });
   },
+  setMode(mode) {
+    set({ mode });
+  },
+  async loadSeason(slotId, teamId) {
+    set({ phase: 'loading-season', error: null });
+    const res = await window.vcd.match.seasonAnalytics(slotId, teamId);
+    if (!res.ok) {
+      set({ phase: 'error', error: res.error.message });
+      return;
+    }
+    set({ season: res, phase: 'ready' });
+  },
   reset() {
     set({
       phase: 'idle',
+      mode: 'match',
       matches: [],
       selectedMatchId: null,
       data: null,
       charts: null,
+      season: null,
       error: null,
     });
   },

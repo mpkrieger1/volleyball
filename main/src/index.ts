@@ -19,6 +19,7 @@ import { registerCoachingHandlers } from './ipc/coachingHandlers';
 import { registerAwardsHandlers } from './ipc/awardsHandlers';
 import { registerScoutHandlers } from './ipc/scoutHandlers';
 import { registerStandingsHandlers } from './ipc/standingsHandlers';
+import { registerRosterHandlers } from './ipc/rosterHandlers';
 import { registerCrashHandlers } from './ipc/crashHandlers';
 import { registerUpdateHandlers } from './ipc/updateHandlers';
 import { autoCheckIfEnabled } from './update/updater';
@@ -86,6 +87,7 @@ app.whenReady().then(() => {
   registerAwardsHandlers(deps);
   registerScoutHandlers(deps);
   registerStandingsHandlers(deps);
+  registerRosterHandlers(deps);
   registerCrashHandlers();
   registerUpdateHandlers();
   logLine('handlers registered');

@@ -41,6 +41,8 @@ function NilViewInner({ teamId }: { teamId: string }) {
     totalSpent,
     remaining,
     roster,
+    phase,
+    isOpen,
     status,
     error,
     load,
@@ -71,7 +73,11 @@ function NilViewInner({ teamId }: { teamId: string }) {
 
   if (!openedSlotId) return null;
 
-  const fmt = (cents: number) => `$${(cents / 100).toLocaleString()}`;
+  // Sprint 28: NIL operates in whole dollars only — round any cents
+  // remainder away at display time. (Underlying storage stays in cents
+  // per CLAUDE.md money convention; this is a UI-only round.)
+  const fmt = (cents: number) =>
+    `$${Math.round(cents / 100).toLocaleString()}`;
 
   return (
     <section aria-labelledby="nil-heading" className="nil-view">
@@ -83,10 +89,26 @@ function NilViewInner({ teamId }: { teamId: string }) {
         </p>
       </header>
 
+      {!isOpen && (
+        <section
+          className="nil-view__closed"
+          role="status"
+          data-testid="nil-closed"
+          aria-labelledby="nil-closed-heading"
+        >
+          <h2 id="nil-closed-heading">NIL is closed during {phase}</h2>
+          <p>
+            The NIL window opens at the start of the offseason and stays open
+            through preseason. It closes once the regular season begins. Your
+            current allocations remain visible below but cannot be edited.
+          </p>
+        </section>
+      )}
+
       <div className="nil-view__controls" role="group" aria-label="NIL controls">
         <button
           type="button"
-          disabled={status === 'working'}
+          disabled={status === 'working' || !isOpen}
           onClick={() => void autoDistribute(openedSlotId, teamId)}
         >
           Auto-distribute
@@ -178,19 +200,23 @@ function NilViewInner({ teamId }: { teamId: string }) {
                   <input
                     type="number"
                     min={0}
+                    step={1}
                     placeholder="$"
                     aria-label={`Assign NIL to ${r.firstName} ${r.lastName}`}
                     value={inputVal}
-                    onChange={(e) =>
-                      setInputs({ ...inputs, [r.playerId]: e.target.value })
-                    }
+                    onChange={(e) => {
+                      // Sprint 28: whole dollars only — strip any decimal
+                      // portion the user types.
+                      const digitsOnly = e.target.value.replace(/[^0-9]/g, '');
+                      setInputs({ ...inputs, [r.playerId]: digitsOnly });
+                    }}
                     style={{ width: '6rem' }}
                   />
                 </td>
                 <td>
                   <button
                     type="button"
-                    disabled={!inputVal || Number(inputVal) < 0}
+                    disabled={!isOpen || !inputVal || Number(inputVal) < 0}
                     onClick={() =>
                       void assign(
                         openedSlotId,
@@ -204,7 +230,7 @@ function NilViewInner({ teamId }: { teamId: string }) {
                   </button>
                   <button
                     type="button"
-                    disabled={r.currentNilCents === 0}
+                    disabled={!isOpen || r.currentNilCents === 0}
                     onClick={() => void revoke(openedSlotId, teamId, r.playerId)}
                   >
                     Revoke

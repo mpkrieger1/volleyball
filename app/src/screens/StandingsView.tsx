@@ -4,9 +4,12 @@
 // IPC handler returns conference standings, RPI top-25, and stat leaders
 // in one round-trip; the renderer just slices into the three tabs.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSaveSlotsStore } from '../store/useSaveSlotsStore';
 import { useStandingsStore } from '../store/useStandingsStore';
+import { useUserTeamStore } from '../store/useUserTeamStore';
+import { useScheduleStore } from '../store/useScheduleStore';
+import { useSeasonStore } from '../store/useSeasonStore';
 import type { standingsIpc } from '@vcd/shared';
 
 type Tab = 'conference' | 'rpi' | 'leaders';
@@ -27,14 +30,31 @@ export function StandingsView() {
   const status = useStandingsStore((s) => s.status);
   const error = useStandingsStore((s) => s.error);
   const loadOverview = useStandingsStore((s) => s.loadOverview);
+  // Sprint 28: default the Conference tab to the user team's conference.
+  const userTeamId = useUserTeamStore((s) => s.userTeamId);
+  const teams = useScheduleStore((s) => s.teams);
+  const userTeamConferenceId = useMemo(
+    () => (userTeamId ? teams.find((t) => t.id === userTeamId)?.conferenceId ?? null : null),
+    [userTeamId, teams],
+  );
+
   const [tab, setTab] = useState<Tab>('conference');
   const [statCat, setStatCat] = useState<standingsIpc.StatCategory>('kills');
+  const [selectedConfId, setSelectedConfId] = useState<string | null>(null);
+  // Sprint 28: stat-leaders scope filter. Defaults to "national"; user can
+  // flip to "conference" to see only leaders whose team is in the user's
+  // conference. Disabled when the user has no team yet.
+  const [leadersScope, setLeadersScope] = useState<'national' | 'conference'>('national');
 
+  // Sprint 28 fix: standings used to load once (status === 'idle' gate)
+  // and never refresh, so after advancing weeks the user saw stale 0-0
+  // records. Now re-fetch whenever the slot OR the current week changes.
+  const seasonWeek = useSeasonStore((s) => s.currentWeek);
   useEffect(() => {
-    if (openedSlotId && status === 'idle') {
+    if (openedSlotId) {
       void loadOverview(openedSlotId);
     }
-  }, [openedSlotId, status, loadOverview]);
+  }, [openedSlotId, seasonWeek, loadOverview]);
 
   if (!openedSlotId) return null;
 
@@ -51,6 +71,18 @@ export function StandingsView() {
     }
     bucket.rows.push(r);
   }
+
+  // Sprint 28: pick the conference to display. User selection wins; else
+  // the user team's conference; else the alphabetically-first conference.
+  const sortedConfIds = [...standingsByConf.entries()]
+    .sort(([, a], [, b]) => a.name.localeCompare(b.name))
+    .map(([id]) => id);
+  const activeConfId =
+    (selectedConfId && standingsByConf.has(selectedConfId) ? selectedConfId : null) ??
+    (userTeamConferenceId && standingsByConf.has(userTeamConferenceId) ? userTeamConferenceId : null) ??
+    sortedConfIds[0] ??
+    null;
+  const activeBucket = activeConfId ? standingsByConf.get(activeConfId) ?? null : null;
 
   return (
     <section aria-labelledby="standings-heading" className="standings-view">
@@ -107,42 +139,82 @@ export function StandingsView() {
               regular season progresses.
             </p>
           ) : (
-            [...standingsByConf.entries()]
-              .sort(([, a], [, b]) => a.name.localeCompare(b.name))
-              .map(([confId, bucket]) => (
-                <div key={confId} className="standings-view__conf">
+            <>
+              <div className="standings-view__conf-picker">
+                <label htmlFor="conf-select">Conference</label>
+                <select
+                  id="conf-select"
+                  data-testid="conf-select"
+                  value={activeConfId ?? ''}
+                  onChange={(e) => setSelectedConfId(e.target.value || null)}
+                >
+                  {sortedConfIds.map((id) => {
+                    const b = standingsByConf.get(id)!;
+                    const isUserConf = userTeamConferenceId === id;
+                    return (
+                      <option key={id} value={id}>
+                        {b.name} ({b.abbr}){isUserConf ? ' — your conference' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+                {userTeamConferenceId &&
+                  standingsByConf.has(userTeamConferenceId) &&
+                  activeConfId !== userTeamConferenceId && (
+                    <button
+                      type="button"
+                      className="standings-view__conf-jump"
+                      onClick={() => setSelectedConfId(userTeamConferenceId)}
+                      data-testid="conf-jump-to-user"
+                    >
+                      Back to your conference
+                    </button>
+                  )}
+              </div>
+
+              {activeBucket && (
+                <div className="standings-view__conf">
                   <h2 className="standings-view__conf-h2">
-                    {bucket.name} <span className="standings-view__conf-abbr">{bucket.abbr}</span>
+                    {activeBucket.name}{' '}
+                    <span className="standings-view__conf-abbr">{activeBucket.abbr}</span>
                   </h2>
                   <table>
                     <thead>
                       <tr>
-                        <th scope="col">#</th>
+                        <th scope="col" className="t-num">#</th>
                         <th scope="col">Team</th>
-                        <th scope="col">Conf</th>
-                        <th scope="col">Overall</th>
+                        <th scope="col" className="t-num">Conf</th>
+                        <th scope="col" className="t-num">Overall</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {bucket.rows.map((r) => (
-                        <tr key={r.teamId}>
-                          <td>{r.rank}</td>
-                          <td>
-                            <strong>{r.teamAbbr}</strong>{' '}
-                            <span className="standings-view__team-school">{r.teamSchool}</span>
-                          </td>
-                          <td>
-                            {r.confWins}–{r.confLosses}
-                          </td>
-                          <td>
-                            {r.overallWins}–{r.overallLosses}
-                          </td>
-                        </tr>
-                      ))}
+                      {activeBucket.rows.map((r) => {
+                        const isUserTeam = userTeamId === r.teamId;
+                        return (
+                          <tr
+                            key={r.teamId}
+                            className={isUserTeam ? 'standings-view__user-team-row' : undefined}
+                            data-testid={isUserTeam ? 'user-team-row' : undefined}
+                          >
+                            <td className="t-num">{r.rank}</td>
+                            <td>
+                              <strong>{r.teamAbbr}</strong>{' '}
+                              <span className="standings-view__team-school">{r.teamSchool}</span>
+                            </td>
+                            <td className="t-num">
+                              {r.confWins}–{r.confLosses}
+                            </td>
+                            <td className="t-num">
+                              {r.overallWins}–{r.overallLosses}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
-              ))
+              )}
+            </>
           )}
         </div>
       )}
@@ -158,26 +230,32 @@ export function StandingsView() {
             <table>
               <thead>
                 <tr>
-                  <th scope="col">#</th>
+                  <th scope="col" className="t-num">#</th>
                   <th scope="col">Team</th>
-                  <th scope="col">RPI</th>
-                  <th scope="col">W–L</th>
+                  <th scope="col" className="t-num">RPI</th>
+                  <th scope="col" className="t-num">W–L</th>
                 </tr>
               </thead>
               <tbody>
-                {rpiTop25.map((r) => (
-                  <tr key={r.teamId}>
-                    <td>{r.rank}</td>
-                    <td>
-                      <strong>{r.teamAbbr}</strong>{' '}
-                      <span className="standings-view__team-school">{r.teamSchool}</span>
-                    </td>
-                    <td>{(r.rpiMilli / 1000).toFixed(3)}</td>
-                    <td>
-                      {r.wins}–{r.losses}
-                    </td>
-                  </tr>
-                ))}
+                {rpiTop25.map((r) => {
+                  const isUserTeam = userTeamId === r.teamId;
+                  return (
+                    <tr
+                      key={r.teamId}
+                      className={isUserTeam ? 'standings-view__user-team-row' : undefined}
+                    >
+                      <td className="t-num">{r.rank}</td>
+                      <td>
+                        <strong>{r.teamAbbr}</strong>{' '}
+                        <span className="standings-view__team-school">{r.teamSchool}</span>
+                      </td>
+                      <td className="t-num">{(r.rpiMilli / 1000).toFixed(3)}</td>
+                      <td className="t-num">
+                        {r.wins}–{r.losses}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -201,37 +279,88 @@ export function StandingsView() {
               </button>
             ))}
           </div>
-          {(statLeaders[statCat]?.length ?? 0) === 0 ? (
-            <p className="save-slots__empty">
-              No matches played yet. Leaders will populate as the season
-              progresses.
-            </p>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">#</th>
-                  <th scope="col">Player</th>
-                  <th scope="col">Team</th>
-                  <th scope="col">Pos</th>
-                  <th scope="col">Total</th>
-                  <th scope="col">/set</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(statLeaders[statCat] ?? []).map((row) => (
-                  <tr key={row.playerId}>
-                    <td>{row.rank}</td>
-                    <td>{row.playerName}</td>
-                    <td>{row.teamAbbr}</td>
-                    <td>{row.position}</td>
-                    <td>{row.value}</td>
-                    <td>{(row.perSetMilli / 1000).toFixed(2)}</td>
+          {/* Sprint 28: scope filter — National (default) or Conference (user's). */}
+          <div className="standings-view__scope-pickers" role="radiogroup" aria-label="Stat-leaders scope">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={leadersScope === 'national'}
+              onClick={() => setLeadersScope('national')}
+              className={leadersScope === 'national' ? 'standings-view__scope--active' : 'standings-view__scope'}
+              data-testid="scope-national"
+            >
+              National
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={leadersScope === 'conference'}
+              onClick={() => setLeadersScope('conference')}
+              disabled={!userTeamConferenceId}
+              title={userTeamConferenceId ? 'Show only your conference' : 'Set your team to enable this filter'}
+              className={leadersScope === 'conference' ? 'standings-view__scope--active' : 'standings-view__scope'}
+              data-testid="scope-conference"
+            >
+              Your conference{userTeamConferenceId
+                ? ''
+                : ' (no team)'}
+            </button>
+          </div>
+          {(() => {
+            const all = statLeaders[statCat] ?? [];
+            // Filter by conference scope if requested. Cross-reference the
+            // row's teamId against `useScheduleStore.teams` to get its
+            // conferenceId — no new IPC needed.
+            const teamConfById = new Map(teams.map((t) => [t.id, t.conferenceId]));
+            const filtered =
+              leadersScope === 'conference' && userTeamConferenceId
+                ? all.filter((r) => teamConfById.get(r.teamId) === userTeamConferenceId)
+                : all;
+            if (filtered.length === 0) {
+              return (
+                <p className="save-slots__empty">
+                  {all.length === 0
+                    ? 'No matches played yet. Leaders will populate as the season progresses.'
+                    : 'No leaders in your conference for this category yet.'}
+                </p>
+              );
+            }
+            return (
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col" className="t-num">#</th>
+                    <th scope="col">Player</th>
+                    <th scope="col">Team</th>
+                    <th scope="col" className="t-num">Pos</th>
+                    <th scope="col" className="t-num">Total</th>
+                    <th scope="col" className="t-num">/set</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+                </thead>
+                <tbody>
+                  {filtered.map((row, idx) => {
+                    const isUserTeam = userTeamId === row.teamId;
+                    // Re-rank within the filtered set (so a #1-in-conference
+                    // shows as #1 not whatever its national rank was).
+                    const displayRank = leadersScope === 'conference' ? idx + 1 : row.rank;
+                    return (
+                      <tr
+                        key={row.playerId}
+                        className={isUserTeam ? 'standings-view__user-team-row' : undefined}
+                      >
+                        <td className="t-num">{displayRank}</td>
+                        <td>{row.playerName}</td>
+                        <td>{row.teamAbbr}</td>
+                        <td className="t-num">{row.position}</td>
+                        <td className="t-num">{row.value}</td>
+                        <td className="t-num">{(row.perSetMilli / 1000).toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            );
+          })()}
         </div>
       )}
     </section>

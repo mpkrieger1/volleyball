@@ -232,6 +232,10 @@ model RecruitInterest {
   teamId        String
   interest      Int     @default(0)
   actionsSpent  Int     @default(0)
+  /// Sprint 28 Task 28.5B: 0..3 scout-report reveal level. Each SCOUT
+  /// action bumps this by 1; the recruit-detail modal uses it to decide
+  /// which skill letter-grades to show.
+  scoutLevel    Int     @default(0)
 
   @@unique([recruitId, teamId])
   @@index([teamId])

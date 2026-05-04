@@ -1,3 +1,13 @@
+// Sprint 28 redesign: AVCA All-Americans screen with ShadCN-style primitives.
+//
+// Layout:
+//   - Header: title + sub.
+//   - Stats strip (.recruiting-header) with season picker, tier counts.
+//   - Position filter row (.ui-checkbox toggles).
+//   - Tab nav (.recruiting-board__tabs) for First / Second / Third / HM.
+//   - Table (.ui-table) of selections; click a player name to expand
+//     career AA history inline.
+
 import { Fragment, useEffect, useState } from 'react';
 import { useSaveSlotsStore } from '../store/useSaveSlotsStore';
 import { useAwardsStore, type AaTeam } from '../store/useAwardsStore';
@@ -35,8 +45,6 @@ export function AwardsView() {
   useEffect(() => {
     if (!openedSlotId) return;
     if (seasonYear == null) {
-      // First load: ask for the most recent season with awards. We do
-      // this via a probe call; the handler returns availableSeasons.
       void loadForSeason(openedSlotId, new Date().getFullYear());
     }
   }, [openedSlotId, seasonYear, loadForSeason]);
@@ -70,43 +78,98 @@ export function AwardsView() {
     posFilter.has(effectivePosition(e.position, e.isLibero) as Position),
   );
 
+  const tierCounts: Record<AaTeam, number> = {
+    first: teams.first.length,
+    second: teams.second.length,
+    third: teams.third.length,
+    hm: teams.hm.length,
+  };
+  const totalSelections =
+    tierCounts.first + tierCounts.second + tierCounts.third + tierCounts.hm;
+
   return (
     <section aria-labelledby="awards-heading" className="awards-view">
       <header className="match-hub__header">
         <h1 id="awards-heading">AVCA All-Americans</h1>
-        <div className="awards-view__controls">
-          <label htmlFor="awards-season">
-            Season:{' '}
-            <select
-              id="awards-season"
-              value={seasonYear ?? ''}
-              onChange={(e) => void onSelectSeason(Number(e.target.value))}
-            >
-              {availableSeasons.length === 0 && seasonYear == null && (
-                <option value="">—</option>
-              )}
-              {availableSeasons.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </label>
-          <fieldset className="awards-view__pos-filter">
-            <legend>Position filter</legend>
-            {POSITIONS.map((p) => (
-              <label key={p}>
-                <input
-                  type="checkbox"
-                  checked={posFilter.has(p)}
-                  onChange={() => togglePos(p)}
-                />
-                {p}
-              </label>
-            ))}
-          </fieldset>
-        </div>
+        <p className="match-hub__sub">
+          Annual selections by tier — click a player to expand career AA history.
+        </p>
       </header>
+
+      <section
+        className="recruiting-header"
+        aria-label="Awards summary"
+        data-testid="awards-header"
+      >
+        <div className="recruiting-header__cap recruiting-header__cap--field">
+          <span className="recruiting-header__cap-label">Season</span>
+          <select
+            id="awards-season"
+            className="ui-select"
+            value={seasonYear ?? ''}
+            onChange={(e) => void onSelectSeason(Number(e.target.value))}
+            aria-label="Select season"
+          >
+            {availableSeasons.length === 0 && seasonYear == null && (
+              <option value="">—</option>
+            )}
+            {availableSeasons.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="recruiting-header__cap">
+          <span className="recruiting-header__cap-label">Total selections</span>
+          <span className="recruiting-header__cap-value">{totalSelections}</span>
+        </div>
+        <div className="recruiting-header__cap">
+          <span className="recruiting-header__cap-label">1st Team</span>
+          <span className="recruiting-header__cap-value">{tierCounts.first}</span>
+        </div>
+        <div className="recruiting-header__cap">
+          <span className="recruiting-header__cap-label">2nd Team</span>
+          <span className="recruiting-header__cap-value">{tierCounts.second}</span>
+        </div>
+        <div className="recruiting-header__cap">
+          <span className="recruiting-header__cap-label">3rd Team</span>
+          <span className="recruiting-header__cap-value">{tierCounts.third}</span>
+        </div>
+        <div className="recruiting-header__cap">
+          <span className="recruiting-header__cap-label">Honorable Mention</span>
+          <span className="recruiting-header__cap-value">{tierCounts.hm}</span>
+        </div>
+      </section>
+
+      <fieldset
+        className="awards-view__pos-filter recruiting-board__toolbar-filters"
+        aria-label="Position filter"
+      >
+        <legend className="ui-label">Positions</legend>
+        {POSITIONS.map((p) => {
+          const checked = posFilter.has(p);
+          return (
+            <label
+              key={p}
+              className={
+                checked
+                  ? 'ui-toggle-pill ui-toggle-pill--active'
+                  : 'ui-toggle-pill'
+              }
+              data-testid={`awards-pos-${p}`}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => togglePos(p)}
+                className="visually-hidden"
+              />
+              {p}
+            </label>
+          );
+        })}
+      </fieldset>
 
       {error && (
         <p role="alert" className="match-hub__error">
@@ -114,11 +177,15 @@ export function AwardsView() {
         </p>
       )}
 
-      {status === 'loading' && <p>Loading…</p>}
+      {status === 'loading' && <p data-testid="awards-loading">Loading…</p>}
 
       {status === 'ready' && seasonYear != null && (
         <>
-          <nav aria-label="AA team selection" className="awards-view__tabs" role="tablist">
+          <nav
+            aria-label="AA team selection"
+            className="recruiting-board__tabs"
+            role="tablist"
+          >
             {TEAMS.map((t) => (
               <button
                 key={t}
@@ -131,9 +198,20 @@ export function AwardsView() {
                   setActiveTeam(t);
                   setExpandedPlayerId(null);
                 }}
-                className={activeTeam === t ? 'awards-view__tab--active' : ''}
+                className={
+                  activeTeam === t
+                    ? 'recruiting-board__tab recruiting-board__tab--active'
+                    : 'recruiting-board__tab'
+                }
+                data-testid={`awards-tab-${t}`}
               >
                 {TEAM_LABELS[t]}
+                <span
+                  aria-hidden="true"
+                  className="ui-badge ui-badge--muted awards-view__tab-count"
+                >
+                  {tierCounts[t]}
+                </span>
               </button>
             ))}
           </nav>
@@ -142,77 +220,113 @@ export function AwardsView() {
             id={`awards-panel-${activeTeam}`}
             aria-labelledby={`awards-tab-${activeTeam}`}
           >
-            <table className="poll-view__table awards-view__table">
-              <caption>
-                {TEAM_LABELS[activeTeam]} — {seasonYear} season
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Rank</th>
-                  <th scope="col">Player</th>
-                  <th scope="col">Pos</th>
-                  <th scope="col">School</th>
-                  <th scope="col">Class</th>
-                  <th scope="col">Stat</th>
-                  <th scope="col">Prior AA</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleEntries.map((e, idx) => {
-                  const expanded = expandedPlayerId === e.playerId;
-                  const detailId = `awards-career-${e.playerId}`;
-                  return (
-                    <Fragment key={e.playerId}>
-                      <tr className="awards-view__row">
-                        <td>{idx + 1}</td>
-                        <td>
-                          <button
-                            type="button"
-                            onClick={() => void onTogglePlayer(e.playerId)}
-                            aria-expanded={expanded}
-                            aria-controls={detailId}
-                            className="awards-view__player-btn"
-                          >
-                            {e.playerName}
-                          </button>
-                        </td>
-                        <td>{effectivePosition(e.position, e.isLibero)}</td>
-                        <td>{e.teamName}</td>
-                        <td>{e.classYear}</td>
-                        <td>
-                          {e.primaryStat.value} {e.primaryStat.label}
-                        </td>
-                        <td>{e.priorAaCount}</td>
-                      </tr>
-                      {expanded && careerByPlayerId[e.playerId] && (
-                        <tr>
-                          <td colSpan={7} id={detailId}>
-                            <strong>Career AA history:</strong>
-                            {careerByPlayerId[e.playerId]!.length === 0 ? (
-                              <p>No prior or current AA awards.</p>
+            <div className="ui-table-wrap">
+              <table
+                className="ui-table awards-view__table"
+                data-testid="awards-table"
+              >
+                <caption className="visually-hidden">
+                  {TEAM_LABELS[activeTeam]} — {seasonYear} season
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col" className="t-num">#</th>
+                    <th scope="col">Player</th>
+                    <th scope="col" className="t-num">Pos</th>
+                    <th scope="col">School</th>
+                    <th scope="col" className="t-num">Class</th>
+                    <th scope="col">Stat</th>
+                    <th scope="col" className="t-num">Prior AA</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleEntries.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="awards-view__empty">
+                        No selections matching the current filter.
+                      </td>
+                    </tr>
+                  )}
+                  {visibleEntries.map((e, idx) => {
+                    const expanded = expandedPlayerId === e.playerId;
+                    const detailId = `awards-career-${e.playerId}`;
+                    return (
+                      <Fragment key={e.playerId}>
+                        <tr className="awards-view__row">
+                          <td className="t-num">{idx + 1}</td>
+                          <td>
+                            <button
+                              type="button"
+                              onClick={() => void onTogglePlayer(e.playerId)}
+                              aria-expanded={expanded}
+                              aria-controls={detailId}
+                              className="awards-view__player-btn"
+                            >
+                              <strong>{e.playerName}</strong>
+                              <span aria-hidden="true" className="awards-view__chevron">
+                                {expanded ? '▾' : '▸'}
+                              </span>
+                            </button>
+                          </td>
+                          <td className="t-num">
+                            {effectivePosition(e.position, e.isLibero)}
+                          </td>
+                          <td>{e.teamName}</td>
+                          <td className="t-num">{e.classYear}</td>
+                          <td>
+                            <span className="awards-view__stat">
+                              <strong>{e.primaryStat.value}</strong>{' '}
+                              <span className="awards-view__stat-label">
+                                {e.primaryStat.label}
+                              </span>
+                            </span>
+                          </td>
+                          <td className="t-num">
+                            {e.priorAaCount > 0 ? (
+                              <span className="ui-badge ui-badge--accent">
+                                {e.priorAaCount}×
+                              </span>
                             ) : (
-                              <ul>
-                                {careerByPlayerId[e.playerId]!.map((c) => (
-                                  <li key={`${c.seasonYear}-${c.team}`}>
-                                    {c.seasonYear} — {TEAM_LABELS[c.team]}
-                                  </li>
-                                ))}
-                              </ul>
+                              <span className="ui-badge ui-badge--muted">—</span>
                             )}
                           </td>
                         </tr>
-                      )}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+                        {expanded && careerByPlayerId[e.playerId] && (
+                          <tr>
+                            <td colSpan={7} id={detailId} className="awards-view__career">
+                              <h3 className="awards-view__career-heading">
+                                Career AA history:
+                              </h3>
+                              {careerByPlayerId[e.playerId]!.length === 0 ? (
+                                <p className="awards-view__empty">
+                                  No prior or current AA awards.
+                                </p>
+                              ) : (
+                                <ul className="awards-view__career-list">
+                                  {careerByPlayerId[e.playerId]!.map((c) => (
+                                    <li key={`${c.seasonYear}-${c.team}`}>
+                                      {c.seasonYear} — {TEAM_LABELS[c.team]}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
 
       {status === 'error' && availableSeasons.length === 0 && (
-        <p>No AA awards yet — finish a season through the NCAA championship.</p>
+        <p className="match-hub__sub">
+          No AA awards yet — finish a season through the NCAA championship.
+        </p>
       )}
     </section>
   );
