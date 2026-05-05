@@ -3,6 +3,7 @@ import { create } from 'zustand';
 export type ActiveScreen =
   | 'season-hub'
   | 'match-hub'
+  | 'live-play' // Sprint 29: pausable, rally-by-rally play mode (separate from Match Hub).
   | 'schedule'
   | 'roster'
   | 'season' // Sprint 28: parent for poll/bracket/standings/awards

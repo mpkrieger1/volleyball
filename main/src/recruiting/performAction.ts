@@ -1,6 +1,12 @@
 // Sprint 13: user-initiated recruiting action. Deducts points from the
 // team's weekly budget, creates/updates the RecruitInterest row, returns
 // new interest and remaining budget.
+//
+// Sprint 37 Task 37.2: per-tick interest recompute. The action delta now
+// accrues to `earnedPoints` (cumulative); the displayed `interest` is
+// recomputed live as `base + earnedPoints` from the recruit's priorities
+// × team's attribute levels, so a same-day facilities upgrade reflects
+// immediately on the next read.
 
 import { PrismaClient } from '@prisma/client';
 import { recruiting } from '@vcd/shared';
@@ -70,10 +76,46 @@ export async function performAction(
     const existing = await client.recruitInterest.findUnique({
       where: { recruitId_teamId: { recruitId: input.recruitId, teamId: input.teamId } },
     });
-    const currentInterest = existing?.interest ?? 0;
-    const newInterest = def.scoutOnly
-      ? currentInterest
-      : recruiting.applyActionDelta(currentInterest, input.action);
+    const currentEarnedPoints = existing?.earnedPoints ?? 0;
+    // Action delta accrues to earnedPoints; SCOUT is a no-op interest-wise.
+    const newEarnedPoints = def.scoutOnly
+      ? currentEarnedPoints
+      : Math.max(0, Math.min(recruiting.MAX_INTEREST, currentEarnedPoints + def.delta));
+
+    // Sprint 37: recompute live BASE from current priorities × levels.
+    const team = await client.team.findUnique({
+      where: { id: input.teamId },
+      select: { prestige: true, region: true, facilitiesLevel: true, academicsLevel: true },
+    });
+    const hcRecruitRating = hcRecruit ?? 50;
+    const priorities = recruit.prioritiesJson
+      ? (JSON.parse(recruit.prioritiesJson) as recruiting.RecruitPriorities)
+      : undefined;
+    const liveBase = team
+      ? recruiting.computeRecruitTeamInterestScaled(
+          {
+            stars: recruit.stars as 1 | 2 | 3 | 4 | 5,
+            hometownRegion: recruit.hometownRegion ?? 'CENTRAL',
+          },
+          {
+            teamId: input.teamId,
+            prestige: team.prestige,
+            region: team.region,
+            coachRatingRecruit: hcRecruitRating,
+            commitsAtPosition: 0,
+          },
+          {
+            ...(priorities && { priorities }),
+            wantsToLeaveHome: recruit.wantsToLeaveHome,
+            facilitiesLevel: team.facilitiesLevel,
+            academicsLevel: team.academicsLevel,
+          },
+        )
+      : 0;
+    const newInterest = Math.max(
+      0,
+      Math.min(recruiting.MAX_INTEREST, liveBase + newEarnedPoints),
+    );
     const currentScoutLevel = existing?.scoutLevel ?? 0;
     const newScoutLevel =
       input.action === 'SCOUT' ? Math.min(3, currentScoutLevel + 1) : currentScoutLevel;
@@ -88,11 +130,13 @@ export async function performAction(
             recruitId: input.recruitId,
             teamId: input.teamId,
             interest: newInterest,
+            earnedPoints: newEarnedPoints,
             actionsSpent: 1,
             scoutLevel: newScoutLevel,
           },
           update: {
             interest: newInterest,
+            earnedPoints: newEarnedPoints,
             actionsSpent: (existing?.actionsSpent ?? 0) + 1,
             scoutLevel: newScoutLevel,
           },

@@ -5,6 +5,15 @@
 **Target v1 release:** 2027-04 (12 months from 2026-04-18)
 **Working title:** NCAA Volleyball Coach Dynasty (VCD)
 
+> **v1.1+ note:** the PRD §5 sprint plan covers Sprint 1–26 (v1.0 ship). v1.1
+> Live Play (Sprints 29–31) and v1.2 player-development (Sprints 32–34) are
+> tracked as standalone specs in `docs/sprints/`. Sprint 32 in particular
+> mirrors FCCD's player-development model: a single `Player.potential` plus a
+> per-attribute "line function" gain curve — explicitly rejecting an earlier
+> "9 per-skill potential columns" proposal. See
+> `docs/sprints/sprint-32-spec.md` §1 for rationale and
+> `shared/src/offseason/trainingGain.ts` for the live curve.
+
 \---
 
 ## 1\. Vision

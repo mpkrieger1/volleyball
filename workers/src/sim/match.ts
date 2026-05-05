@@ -1,8 +1,14 @@
 // Sprint 4 best-of-5 match loop. Sprint 19: optional `useCoachAi` enables
 // timeout invocations during sets — production matches now opt in so the
 // Match Hub ticker has real timeout events to surface.
+//
+// Sprint 34: optional per-side `practiceFocusModifier` plumbing. When
+// absent OR equal to IDENTITY, the rally FSM short-circuits the apply
+// pass via `applyBonus(dist, key, 1) === dist` — preserving byte-equality
+// with the legacy seed-only call path. This is the calibration invariant
+// (CLAUDE.md §Critical rules #2).
 
-import { sim } from '@vcd/shared';
+import { sim, season } from '@vcd/shared';
 import { simulateSet, type SetResult, type TeamMatchState } from './set';
 
 export type MatchResult = {
@@ -25,6 +31,13 @@ export type SimulateMatchInput = {
    * has timeout banners to render.
    */
   useCoachAi?: boolean;
+  /**
+   * Sprint 34: optional per-side practice-focus modifier. When omitted or
+   * equal to IDENTITY, the rally FSM produces byte-equal output to the
+   * pre-Sprint-34 seed-only path (calibration invariant).
+   */
+  homeModifier?: season.PracticeFocusModifier;
+  awayModifier?: season.PracticeFocusModifier;
 };
 
 export function simulateMatch(input: SimulateMatchInput): MatchResult {
@@ -46,6 +59,8 @@ export function simulateMatch(input: SimulateMatchInput): MatchResult {
       initialServer,
       targetScore: target,
       useCoachAi,
+      ...(input.homeModifier && { homeModifier: input.homeModifier }),
+      ...(input.awayModifier && { awayModifier: input.awayModifier }),
     });
     sets.push(result);
     if (result.homeScore > result.awayScore) homeSetsWon += 1;

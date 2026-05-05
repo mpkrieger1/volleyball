@@ -1,6 +1,7 @@
 import type {
   saveSlotIpc,
   matchIpc,
+  liveMatchIpc,
   scheduleIpc,
   seasonIpc,
   pollIpc,
@@ -10,6 +11,7 @@ import type {
   portalIpc,
   nilIpc,
   offseasonIpc,
+  practiceFocusIpc,
   coachingIpc,
   awardsIpc,
   scoutIpc,
@@ -62,6 +64,25 @@ declare global {
         slotId: string,
         teamId: string,
       ): Promise<matchIpc.SeasonAnalyticsResponse>;
+      // Sprint 29 Task 29.4: live-mode match interface.
+      live: {
+        createAndStart(req: liveMatchIpc.LiveCreateAndStartRequest): Promise<liveMatchIpc.LiveCreateAndStartResponse>;
+        start(req: liveMatchIpc.LiveStartRequest): Promise<liveMatchIpc.LiveStateResponse>;
+        getState(slotId: string, matchId: string): Promise<liveMatchIpc.LiveStateResponse>;
+        playRallies(slotId: string, matchId: string, n: number): Promise<liveMatchIpc.LivePlayResponse>;
+        playToSetEnd(slotId: string, matchId: string): Promise<liveMatchIpc.LivePlayResponse>;
+        playToMatchEnd(slotId: string, matchId: string): Promise<liveMatchIpc.LivePlayResponse>;
+        pause(slotId: string, matchId: string): Promise<liveMatchIpc.LivePauseResponse>;
+        resume(slotId: string, matchId: string): Promise<liveMatchIpc.LiveStateResponse>;
+        simulateRest(slotId: string, matchId: string): Promise<liveMatchIpc.LivePauseResponse>;
+        dispose(slotId: string, matchId: string): Promise<liveMatchIpc.LivePauseResponse>;
+        hasPaused(slotId: string, matchId: string): Promise<liveMatchIpc.LiveHasPausedResponse>;
+        hasActive(slotId: string): Promise<liveMatchIpc.LiveHasActiveResponse>;
+        callTimeout(slotId: string, matchId: string, skill?: liveMatchIpc.SkillKey): Promise<liveMatchIpc.LiveStateResponse>;
+        substitute(slotId: string, matchId: string, outIdx: number, inPlayerId: string): Promise<liveMatchIpc.LiveStateResponse>;
+        setRotation(req: liveMatchIpc.LiveSetRotationRequest): Promise<liveMatchIpc.LiveStateResponse>;
+        listPaused(slotId: string): Promise<liveMatchIpc.LiveListPausedResponse>;
+      };
     };
     schedule: {
       generate(req: {
@@ -129,6 +150,12 @@ declare global {
         teamId: string,
         recruitId: string,
       ): Promise<recruitingIpc.DetailResponse>;
+      setNilOffer(req: {
+        slotId: string;
+        teamId: string;
+        recruitId: string;
+        offerCents: number;
+      }): Promise<recruitingIpc.SetNilOfferResponse>;
     };
     portal: {
       open(slotId: string): Promise<portalIpc.OpenResponse>;
@@ -171,6 +198,42 @@ declare global {
         teamId: string,
       ): Promise<offseasonIpc.PreseasonStateResponse>;
       startRegular(slotId: string): Promise<offseasonIpc.StartRegularResponse>;
+      // Sprint 33 — event-aware offseason calendar.
+      advanceEvent(req: {
+        slotId: string;
+        teamId?: string | null;
+      }): Promise<offseasonIpc.AdvanceEventResponse>;
+      getEventState(
+        slotId: string,
+        teamId: string,
+      ): Promise<offseasonIpc.EventStateResponse>;
+      setTrainingFocusPick(req: {
+        slotId: string;
+        teamId: string;
+        coachId: string;
+        slotIndex: number;
+        attribute: string;
+      }): Promise<offseasonIpc.SetTrainingFocusPickResponse>;
+      listTrainingResults(req: {
+        slotId: string;
+        teamId: string;
+        seasonYear: number;
+      }): Promise<offseasonIpc.ListTrainingResultsResponse>;
+    };
+    practiceFocus: {
+      // Sprint 34 — weekly practice-focus picks.
+      getWeekState(req: {
+        slotId: string;
+        teamId: string;
+        week: number;
+      }): Promise<practiceFocusIpc.GetWeekStateResponse>;
+      setPick(req: {
+        slotId: string;
+        teamId: string;
+        week: number;
+        offenseFocus: string;
+        defenseFocus: string;
+      }): Promise<practiceFocusIpc.SetPickResponse>;
     };
     coaching: {
       listStaff(slotId: string, teamId: string): Promise<coachingIpc.ListStaffResponse>;

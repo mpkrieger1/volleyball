@@ -24,11 +24,14 @@ beforeAll(async () => {
   execSync(`npx prisma migrate deploy`, { cwd: repoRoot, env, stdio: 'pipe' });
   execSync(`npx tsx prisma/seed.ts`, { cwd: repoRoot, env, stdio: 'pipe' });
   client = new PrismaClient({ datasources: { db: { url: `file:${dbPath}` } } });
-  // Seed a Season row in NCAA_CHAMP-like state so runOffseason can transition.
+  // Sprint 37 (Task 37.5b): runOffseason walks the OFFSEASON event sequence;
+  // NCAA_CHAMP → OFFSEASON transition is owned by advanceTournamentRound
+  // (post-championship), so the test starts in OFFSEASON to simulate the
+  // post-championship state.
   await client.season.upsert({
     where: { year: 2026 },
-    create: { year: 2026, phase: 'NCAA_CHAMP', currentWeek: 21 },
-    update: { phase: 'NCAA_CHAMP', currentWeek: 21 },
+    create: { year: 2026, phase: 'OFFSEASON', currentWeek: 21, phaseWeek: 0 },
+    update: { phase: 'OFFSEASON', currentWeek: 21, phaseWeek: 0 },
   });
 }, 180_000);
 
@@ -43,14 +46,15 @@ describe('coach lifecycle (Sprint 28)', () => {
     const hcSnapshots: Array<Map<string, string>> = [];
 
     for (let i = 0; i < 3; i += 1) {
-      // After the first cycle the season phase is PRESEASON; reset it for
-      // the next runOffseason call.
+      // After the first cycle the season phase is REGULAR; reset to OFFSEASON
+      // for the next runOffseason call (Sprint 37: NCAA_CHAMP → OFFSEASON
+      // transition is owned by advanceTournamentRound, not runOffseason).
       const season = await client.season.findFirst({ orderBy: { year: 'desc' } });
       if (!season) throw new Error('no season');
-      if (season.phase !== 'NCAA_CHAMP') {
+      if (season.phase !== 'OFFSEASON') {
         await client.season.update({
           where: { id: season.id },
-          data: { phase: 'NCAA_CHAMP', currentWeek: 21 },
+          data: { phase: 'OFFSEASON', phaseWeek: 0 },
         });
       }
       await runOffseason({ dbPath, seed: `lifecycle-${i}` });

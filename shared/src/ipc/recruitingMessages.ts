@@ -173,6 +173,33 @@ export const ScoutReportRow = z.object({
   grade: ScoutGrade,
 });
 export type ScoutReportRow = z.infer<typeof ScoutReportRow>;
+// Sprint 37 Task 37.4: extend the modal payload with the Sprint 35/36
+// data Sprint 36 components consume (PrioritiesReadout, PitchReasonsCard,
+// ScoutTierIndicator, NilOfferSlider).
+export const RecruitPrioritiesView = z.object({
+  playingTime: z.number().int().min(0).max(10),
+  proximityToHome: z.number().int().min(0).max(10),
+  prestige: z.number().int().min(0).max(10),
+  facilities: z.number().int().min(0).max(10),
+  nilDeal: z.number().int().min(0).max(10),
+});
+export type RecruitPrioritiesView = z.infer<typeof RecruitPrioritiesView>;
+
+export const PitchReasonView = z.object({
+  type: z.enum(['COACH_PEDIGREE', 'COACH_CONNECTION']),
+  active: z.boolean(),
+  points: z.number().int().nonnegative(),
+  flavorText: z.string(),
+});
+export type PitchReasonView = z.infer<typeof PitchReasonView>;
+
+export const RecruiterQualityView = z.object({
+  coachId: z.string(),
+  role: z.enum(['HC', 'AHC', 'AC']),
+  quality: z.enum(['ACE', 'GREAT', 'GOOD', 'MEDIOCRE']),
+});
+export type RecruiterQualityView = z.infer<typeof RecruiterQualityView>;
+
 export const RecruitDetailView = z.object({
   recruitId: z.string(),
   firstName: z.string(),
@@ -190,11 +217,42 @@ export const RecruitDetailView = z.object({
   interestMeter: z.array(InterestMeterRow),
   /** This team's spend pattern: total actions across all action types. */
   actionsSpent: z.number().int().nonnegative(),
+  // ── Sprint 37 additions ──
+  /** Sprint 35: per-recruit priorities (0..10 each). */
+  priorities: RecruitPrioritiesView,
+  /** Sprint 35: 15% of recruits flip proximity polarity. */
+  wantsToLeaveHome: z.boolean(),
+  /** Sprint 36: PEDIGREE + CONNECTION pitch reasons (active flags + points). */
+  pitchReasons: z.array(PitchReasonView),
+  /** Sprint 36: recruiter-quality tier per coaching slot (HC/AHC/AC). */
+  recruiterQualityByCoach: z.array(RecruiterQualityView),
+  /** Sprint 36: this team's NIL pool size in cents. */
+  nilBudgetCents: z.number().int().nonnegative(),
+  /** Sprint 36: NIL spent across the team this cycle (cents). */
+  nilBudgetUsedCents: z.number().int().nonnegative(),
+  /** Sprint 36: this (team, recruit) NIL offer (cents). */
+  nilOfferCents: z.number().int().nonnegative(),
 });
 export type RecruitDetailView = z.infer<typeof RecruitDetailView>;
 export const DetailOk = z.object({ ok: z.literal(true), detail: RecruitDetailView });
 export const DetailResponse = z.discriminatedUnion('ok', [DetailOk, Err]);
 export type DetailResponse = z.infer<typeof DetailResponse>;
+
+// Sprint 36: setNilOffer — user adjusts NIL allocation for a recruit.
+export const SetNilOfferRequest = z.object({
+  slotId: z.string().min(1),
+  teamId: z.string().min(1),
+  recruitId: z.string().min(1),
+  offerCents: z.number().int().nonnegative(),
+});
+export type SetNilOfferRequest = z.infer<typeof SetNilOfferRequest>;
+export const SetNilOfferOk = z.object({
+  ok: z.literal(true),
+  nilOfferCents: z.number().int(),
+  nilBudgetUsedCents: z.number().int(),
+});
+export const SetNilOfferResponse = z.discriminatedUnion('ok', [SetNilOfferOk, Err]);
+export type SetNilOfferResponse = z.infer<typeof SetNilOfferResponse>;
 
 export const RECRUITING_IPC_CHANNELS = {
   open: 'recruiting:open',
@@ -205,4 +263,5 @@ export const RECRUITING_IPC_CHANNELS = {
   budget: 'recruiting:budget',
   teamNeeds: 'recruiting:teamNeeds',
   detail: 'recruiting:detail',
+  setNilOffer: 'recruiting:setNilOffer',
 } as const;

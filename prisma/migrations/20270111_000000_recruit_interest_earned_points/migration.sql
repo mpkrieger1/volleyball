@@ -1,0 +1,21 @@
+-- Sprint 37 Task 37.2: per-tick interest recompute.
+--
+-- Pre-Sprint-37, RecruitInterest.interest stored a delta-patched cumulative
+-- value: openRecruitingCycle seeded it from base interest, then each AI tick
+-- and user action incremented it. Team-attribute changes mid-cycle (e.g. a
+-- facilities upgrade) had no effect — the stored value was frozen.
+--
+-- Sprint 37 splits the field into two:
+--   earnedPoints: cumulative weekly action delta (monotonic during the
+--                 cycle; only AI ticks + user actions advance it).
+--   interest:    derived = base + earnedPoints, recomputed each tick from
+--                live priorities × team-attribute levels via
+--                computeRecruitTeamInterestScaled.
+--
+-- Backfill: existing rows had earnedPoints baked into interest, so the
+-- safest backfill is `earnedPoints = interest`. The next AI tick will
+-- recompute the displayed interest = base + earnedPoints. There is no
+-- semantic loss — the cycle continues from where it left off, just with
+-- live team-attribute responsiveness from this tick forward.
+ALTER TABLE "RecruitInterest" ADD COLUMN "earnedPoints" INTEGER NOT NULL DEFAULT 0;
+UPDATE "RecruitInterest" SET "earnedPoints" = "interest";

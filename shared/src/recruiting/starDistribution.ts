@@ -57,8 +57,17 @@ export function sampleBaseRating(rng: Rng, stars: Stars): number {
 /**
  * Potential ceiling (0..100). Higher stars → higher mean with noise.
  * Distinct from current rating — represents the developmental cap.
+ *
+ * INVARIANT: potential MUST be ≥ current overall. Pass `floor` (typically
+ * the player's freshly-derived OVR + a few points of headroom) so the
+ * sampled value is clamped at minimum to the floor. Without this, a
+ * left-tail Gaussian draw can produce potential < base, which violates
+ * the semantic meaning ("ceiling for development").
+ *
+ * `floor` defaults to 30 (the legacy lower clamp) when callers don't
+ * have an OVR yet.
  */
-export function samplePotential(rng: Rng, stars: Stars): number {
+export function samplePotential(rng: Rng, stars: Stars, floor = 30): number {
   const means: Record<Stars, number> = { 5: 93, 4: 85, 3: 75, 2: 65, 1: 55 };
   const sd = 5;
   const mean = means[stars];
@@ -66,5 +75,5 @@ export function samplePotential(rng: Rng, stars: Stars): number {
   const u1 = Math.max(1e-9, rng.next());
   const u2 = rng.next();
   const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-  return Math.max(30, Math.min(100, Math.round(mean + z * sd)));
+  return Math.max(floor, Math.min(100, Math.round(mean + z * sd)));
 }

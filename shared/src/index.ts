@@ -3,6 +3,8 @@ export * as ipc from './ipc/workerMessages';
 export * as saveSlotIpc from './ipc/saveSlotMessages';
 export * as simIpc from './ipc/simMessages';
 export * as matchIpc from './ipc/matchMessages';
+// Sprint 29 Task 29.4: live-mode IPC namespace.
+export * as liveMatchIpc from './ipc/liveMatchMessages';
 export { getPrismaClient, disposePrismaClients } from './db/client';
 // NOTE: `seedLeagueInto`, `loadConferencesFrom`, `loadTeamsFrom` live in
 // `./seed/leagueSeed` and depend on `node:fs` / `node:path`. They MUST NOT
@@ -18,7 +20,9 @@ export * as sim from './sim';
 export * as schedule from './schedule';
 export * as poll from './poll';
 export * as scheduleIpc from './ipc/scheduleMessages';
+export * as season from './season';
 export * as seasonIpc from './ipc/seasonMessages';
+export * as practiceFocusIpc from './ipc/practiceFocusMessages';
 export * as pollIpc from './ipc/pollMessages';
 export * as bracket from './bracket';
 export * as bracketIpc from './ipc/bracketMessages';

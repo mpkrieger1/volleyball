@@ -138,7 +138,23 @@ function setupVcd(over: Partial<{ listTeams: unknown; simulate: unknown; getById
         }),
       getById: (over.getById as Window['vcd']['match']['getById']) ??
         vi.fn().mockResolvedValue(makeMatchPayload()),
-    },
+      // Sprint 29 live-mode IPC surface — MatchHub queries listPaused +
+      // hasActive on mount to decide whether to show the resume banner.
+      // Tests mock these to no-op responses so the component renders.
+      live: {
+        listPaused: vi.fn().mockResolvedValue({ ok: true, matches: [] }),
+        hasActive: vi.fn().mockResolvedValue({ ok: true, hasActive: false }),
+        hasPaused: vi.fn().mockResolvedValue({ ok: true, hasPaused: false }),
+      } as unknown as Window['vcd']['match']['live'],
+      // Sprint 19 + Sprint 22 additions — defaulted to empty results
+      // so component code-paths that read recent matches don't crash.
+      listRecentMatches: vi.fn().mockResolvedValue({ ok: true, matches: [] }),
+      seasonAnalytics: vi.fn().mockResolvedValue({
+        ok: true,
+        analytics: { matches: [], rolledUp: null },
+      }),
+      getAnalytics: vi.fn().mockResolvedValue({ ok: true, analytics: null }),
+    } as unknown as Window['vcd']['match'],
     schedule: {
       listForTeam: vi.fn().mockResolvedValue({ ok: true, rows: [] }),
       listTeams: vi.fn().mockResolvedValue({ ok: true, teams: [] }),

@@ -20,81 +20,100 @@ const mkTeam = (
   ...over,
 });
 
-describe('computeBaseInterest', () => {
+// Sprint 37: legacy `computeBaseInterest` deleted. The bridge that
+// remains is `computeRecruitTeamInterestScaled` — same legacy 0..1000
+// magnitude, sourced from priorityModel + Sprint 28 floor penalty.
+// The detailed math is covered in `priorityModel.test.ts`; these tests
+// guard the ordinal contracts callers depend on.
+describe('computeRecruitTeamInterestScaled', () => {
   it('scales with team prestige', () => {
     const r = mkRecruit();
-    const hi = recruiting.computeBaseInterest(r, mkTeam({ prestige: 90 }));
-    const lo = recruiting.computeBaseInterest(r, mkTeam({ prestige: 40 }));
+    const hi = recruiting.computeRecruitTeamInterestScaled(r, mkTeam({ prestige: 90 }));
+    const lo = recruiting.computeRecruitTeamInterestScaled(r, mkTeam({ prestige: 40 }));
     expect(hi).toBeGreaterThan(lo);
   });
 
   it('scales with coachRatingRecruit', () => {
     const r = mkRecruit();
-    const hi = recruiting.computeBaseInterest(r, mkTeam({ coachRatingRecruit: 85 }));
-    const lo = recruiting.computeBaseInterest(r, mkTeam({ coachRatingRecruit: 35 }));
+    const hi = recruiting.computeRecruitTeamInterestScaled(
+      r,
+      mkTeam({ coachRatingRecruit: 85 }),
+    );
+    const lo = recruiting.computeRecruitTeamInterestScaled(
+      r,
+      mkTeam({ coachRatingRecruit: 35 }),
+    );
     expect(hi).toBeGreaterThan(lo);
   });
 
-  it('grants region bonus when recruit hometown matches team region', () => {
-    const match = recruiting.computeBaseInterest(
+  it('grants a region preference when recruit hometown matches team region', () => {
+    const match = recruiting.computeRecruitTeamInterestScaled(
       mkRecruit({ hometownRegion: 'CENTRAL' }),
       mkTeam({ region: 'CENTRAL' }),
     );
-    const noMatch = recruiting.computeBaseInterest(
+    const noMatch = recruiting.computeRecruitTeamInterestScaled(
       mkRecruit({ hometownRegion: 'CENTRAL' }),
       mkTeam({ region: 'PACIFIC' }),
     );
-    expect(match - noMatch).toBe(recruiting.REGION_BONUS);
+    expect(match).toBeGreaterThan(noMatch);
   });
 
-  it('higher stars score MORE at high-prestige programs (prestige × stars)', () => {
-    // Sprint 28: blue-blood pursues 5-stars more aggressively than 2-stars.
-    const t = mkTeam({ prestige: 90, coachRatingRecruit: 85 });
-    const fiveStar = recruiting.computeBaseInterest(mkRecruit({ stars: 5 }), t);
-    const twoStar = recruiting.computeBaseInterest(mkRecruit({ stars: 2 }), t);
-    expect(fiveStar).toBeGreaterThan(twoStar);
-  });
-
-  it('low-prestige programs (e.g. Davidson) get ZERO interest from 5-star recruits', () => {
-    // Sprint 28: the user-reported bug. Davidson prestige 45 should not
-    // appear on a 5-star's "competing schools" list at all.
+  it('low-prestige programs are penalized vs high-prestige for the same recruit', () => {
     const davidson = mkTeam({ prestige: 45, region: 'EAST', coachRatingRecruit: 55 });
+    const blueBlood = mkTeam({ prestige: 90, region: 'EAST', coachRatingRecruit: 85 });
     const fiveStar = mkRecruit({ stars: 5, hometownRegion: 'EAST' });
-    const score = recruiting.computeBaseInterest(fiveStar, davidson);
-    expect(score).toBe(0);
+    expect(recruiting.computeRecruitTeamInterestScaled(fiveStar, davidson)).toBeLessThan(
+      recruiting.computeRecruitTeamInterestScaled(fiveStar, blueBlood),
+    );
   });
 
-  it('star floor allows 4-star interest at mid-major prestige but penalizes the gap', () => {
+  it('star floor allows 4-star interest at mid-major prestige but penalizes vs high-prestige', () => {
     const midMajor = mkTeam({ prestige: 45, region: 'EAST' });
+    const blueBlood = mkTeam({ prestige: 90, region: 'EAST' });
     const fourStar = mkRecruit({ stars: 4, hometownRegion: 'EAST' });
-    const score = recruiting.computeBaseInterest(fourStar, midMajor);
-    expect(score).toBeGreaterThan(0); // not blocked
-    expect(score).toBeLessThan(200);   // but penalized vs. high-prestige peers
-  });
-
-  it('star floor passes through cleanly when prestige meets the floor', () => {
-    const t = mkTeam({ prestige: 70 });
-    const fiveStar = recruiting.computeBaseInterest(mkRecruit({ stars: 5 }), t);
-    expect(fiveStar).toBeGreaterThanOrEqual(70 * 5); // no floor penalty
+    expect(
+      recruiting.computeRecruitTeamInterestScaled(fourStar, midMajor),
+    ).toBeGreaterThan(0);
+    expect(
+      recruiting.computeRecruitTeamInterestScaled(fourStar, midMajor),
+    ).toBeLessThan(recruiting.computeRecruitTeamInterestScaled(fourStar, blueBlood));
   });
 
   it('low-prestige low-star is not penalized (floors only apply upward)', () => {
     const lowMajor = mkTeam({ prestige: 25 });
-    const oneStar = recruiting.computeBaseInterest(mkRecruit({ stars: 1 }), lowMajor);
+    const oneStar = recruiting.computeRecruitTeamInterestScaled(
+      mkRecruit({ stars: 1 }),
+      lowMajor,
+    );
     expect(oneStar).toBeGreaterThan(0);
   });
 
   it('prior commits at the same position reduce interest (saturation)', () => {
     const r = mkRecruit();
-    const empty = recruiting.computeBaseInterest(r, mkTeam({ commitsAtPosition: 0 }));
-    const full = recruiting.computeBaseInterest(r, mkTeam({ commitsAtPosition: 3 }));
+    const empty = recruiting.computeRecruitTeamInterestScaled(
+      r,
+      mkTeam({ commitsAtPosition: 0 }),
+    );
+    const full = recruiting.computeRecruitTeamInterestScaled(
+      r,
+      mkTeam({ commitsAtPosition: 3 }),
+    );
     expect(empty).toBeGreaterThan(full);
   });
 
   it('is deterministic', () => {
-    const a = recruiting.computeBaseInterest(mkRecruit(), mkTeam());
-    const b = recruiting.computeBaseInterest(mkRecruit(), mkTeam());
+    const a = recruiting.computeRecruitTeamInterestScaled(mkRecruit(), mkTeam());
+    const b = recruiting.computeRecruitTeamInterestScaled(mkRecruit(), mkTeam());
     expect(a).toBe(b);
+  });
+
+  it('returns 0..MAX_INTEREST magnitude (commit-resolution thresholds depend on this)', () => {
+    const score = recruiting.computeRecruitTeamInterestScaled(
+      mkRecruit({ stars: 5, hometownRegion: 'EAST' }),
+      mkTeam({ prestige: 95, region: 'EAST', coachRatingRecruit: 90 }),
+    );
+    expect(score).toBeGreaterThanOrEqual(0);
+    expect(score).toBeLessThanOrEqual(recruiting.MAX_INTEREST);
   });
 });
 
@@ -124,19 +143,20 @@ describe('computeBoardScore (Sprint 25)', () => {
     expect(recruiting.computeBoardScore(r, t)).toBe(recruiting.computeBoardScore(r, t));
   });
 
-  it('rewards higher stars (5-star outranks 2-star for the same team)', () => {
-    const t = mkTeam();
-    // Star bonus dominates the bounded jitter (±20 vs +240 for stars 5-2=3).
-    const fiveStar = recruiting.computeBoardScore({ ...mkRecruit({ stars: 5 }), recruitId: 'r5' }, t);
-    const twoStar = recruiting.computeBoardScore({ ...mkRecruit({ stars: 2 }), recruitId: 'r2' }, t);
+  it('rewards higher stars at high-prestige programs (5-star > 2-star)', () => {
+    const t = mkTeam({ prestige: 90, coachRatingRecruit: 85 });
+    const fiveStar = recruiting.computeBoardScore(
+      { ...mkRecruit({ stars: 5 }), recruitId: 'r5' },
+      t,
+    );
+    const twoStar = recruiting.computeBoardScore(
+      { ...mkRecruit({ stars: 2 }), recruitId: 'r2' },
+      t,
+    );
     expect(fiveStar).toBeGreaterThan(twoStar);
   });
 
   it('produces different scores across teams for the same recruit (jitter)', () => {
-    // The bug pre-Sprint-25: every team scored the same recruit identically
-    // when no region bonus applied, and the id-localeCompare tiebreaker
-    // funneled all teams to the same id-sorted top-N recruits. This test
-    // ensures jitter breaks that clustering.
     const r = { ...mkRecruit({ hometownRegion: 'CENTRAL' }), recruitId: 'r1' };
     const ta = mkTeam({ teamId: 'tA', region: 'PACIFIC' });
     const tb = mkTeam({ teamId: 'tB', region: 'PACIFIC' });
@@ -151,9 +171,6 @@ describe('computeBoardScore (Sprint 25)', () => {
   });
 
   it('100-recruit shuffle: different teams pick distinguishable top-30 sets', () => {
-    // Across 360 teams ranking a 100-recruit class with the SAME prestige
-    // and no region matches, jitter should produce non-trivial differences
-    // in the top-30 selections (Jaccard < 0.95 between team A and team B).
     const recruits = Array.from({ length: 100 }, (_, i) => ({
       stars: ((i % 5) + 1) as 1 | 2 | 3 | 4 | 5,
       hometownRegion: 'CENTRAL',
@@ -172,9 +189,6 @@ describe('computeBoardScore (Sprint 25)', () => {
     let intersection = 0;
     for (const id of aTop) if (bTop.has(id)) intersection += 1;
     const jaccard = intersection / (aTop.size + bTop.size - intersection);
-    // Without jitter, Jaccard would be 1.0 (identical sets). With star
-    // bonus + jitter, expect overlap < 1 — elite recruits still cluster
-    // top, but lower-tier slots diverge.
     expect(jaccard).toBeLessThan(1);
   });
 });
@@ -184,7 +198,6 @@ describe('RECRUITING_ACTIONS shape', () => {
     for (const t of recruiting.RECRUITING_ACTION_TYPES) {
       const def = recruiting.RECRUITING_ACTIONS[t];
       expect(def.cost).toBeGreaterThan(0);
-      // Sprint 28: SCOUT is scoutOnly with delta 0; all others move interest.
       if (def.scoutOnly) {
         expect(def.delta).toBe(0);
       } else {

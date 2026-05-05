@@ -48,6 +48,11 @@ parentPort.on('message', (raw: unknown) => {
       away,
       initialServer: 'home',
       useCoachAi: true,
+      // Sprint 34: optional practice-focus modifiers. Conditional spread
+      // preserves the calibration byte-equality invariant when both
+      // modifiers are absent — `applyBonus` short-circuits at bonus===1.
+      ...(req.homeModifier && { homeModifier: req.homeModifier }),
+      ...(req.awayModifier && { awayModifier: req.awayModifier }),
     });
     const boxScore = sim.computeBoxScore(match);
     const pbpJson = sim.serializeMatchPbp(match);

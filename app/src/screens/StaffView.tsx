@@ -50,6 +50,14 @@ function StaffViewInner({ teamId }: { teamId: string }) {
   if (!openedSlotId) return null;
   const userTeam = teams.find((t) => t.id === teamId) ?? null;
 
+  // Annual salary spend (sum of current staff salaries) + remaining headroom
+  // against the team's operating budget. Multi-year commitments aren't
+  // surfaced here; this is the per-season cap view that maps to how the
+  // offseason hire/fire flow checks budget.
+  const spentCents = staff.reduce((acc, c) => acc + c.salaryCents, 0);
+  const remainingCents = budgetCents - spentCents;
+  const isOverBudget = remainingCents < 0;
+
   return (
     <section aria-labelledby="staff-heading" className="staff-view">
       <header className="match-hub__header">
@@ -58,6 +66,13 @@ function StaffViewInner({ teamId }: { teamId: string }) {
         </h1>
         <p className="match-hub__sub">
           Operating budget: <strong>{fmtMoney(budgetCents)}</strong>
+          {' · '}
+          Spent: <strong>{fmtMoney(spentCents)}</strong>
+          {' · '}
+          <span className={isOverBudget ? 'staff-view__over-budget' : ''}>
+            {isOverBudget ? 'Over budget by ' : 'Remaining: '}
+            <strong>{fmtMoney(Math.abs(remainingCents))}</strong>
+          </span>
         </p>
       </header>
 

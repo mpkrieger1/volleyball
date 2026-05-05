@@ -25,6 +25,8 @@ import { useRecruitingStore } from '../store/useRecruitingStore';
 import { SeasonPanel } from './SeasonPanel';
 import { WeeklyChecklist, buildChecklist } from '../components/WeeklyChecklist';
 import { OffseasonPanel } from '../components/OffseasonPanel';
+import { PracticeFocusPicker } from '../components/PracticeFocusPicker';
+import { usePracticeFocusStore } from '../store/usePracticeFocusStore';
 
 type ActionCard = {
   id: ActiveScreen;
@@ -87,6 +89,10 @@ export function SeasonHub() {
   const recruitingBudget = useRecruitingStore((s) => s.budget);
   const loadRecruitingHeader = useRecruitingStore((s) => s.loadHeader);
   const setScreen = useNavStore((s) => s.setScreen);
+  // Sprint 34: practice focus tile.
+  const practiceFocusState = usePracticeFocusStore((s) => s.weekState);
+  const loadPracticeFocus = usePracticeFocusStore((s) => s.loadWeekState);
+  const setPracticeFocusPick = usePracticeFocusStore((s) => s.setPick);
 
   // Hydrate teams list (used to resolve userTeamId → school name).
   useEffect(() => {
@@ -104,6 +110,14 @@ export function SeasonHub() {
     }
     void loadRecruitingHeader(openedSlotId, userTeamId);
   }, [openedSlotId, userTeamId, selectedTeamId, selectTeam, loadRecruitingHeader]);
+
+  // Sprint 34: load the practice-focus week state when in REGULAR phase
+  // for the user's team + current week.
+  useEffect(() => {
+    if (!openedSlotId || !userTeamId) return;
+    if (phase !== 'REGULAR') return;
+    void loadPracticeFocus(openedSlotId, userTeamId, currentWeek);
+  }, [openedSlotId, userTeamId, phase, currentWeek, loadPracticeFocus]);
 
   const userTeam = useMemo(
     () => (userTeamId ? teams.find((t) => t.id === userTeamId) ?? null : null),
@@ -164,6 +178,20 @@ export function SeasonHub() {
           own tab. Folded into the Hub here — visible only when the
           phase is OFFSEASON or PRESEASON, hidden the rest of the year. */}
       {userTeamId && <OffseasonPanel teamId={userTeamId} />}
+
+      {/* Sprint 34: weekly practice focus picker. Visible during REGULAR
+          when an upcoming match exists for the user team. Practice focus
+          is a per-match buff only (~3-5%) — no rating mutation. */}
+      {phase === 'REGULAR' && practiceFocusState && practiceFocusState.hasUpcomingMatch && (
+        <PracticeFocusPicker
+          state={practiceFocusState}
+          onPick={(off, def) => {
+            if (openedSlotId && userTeamId) {
+              void setPracticeFocusPick(openedSlotId, userTeamId, currentWeek, off, def);
+            }
+          }}
+        />
+      )}
 
       <WeeklyChecklist items={checklistItems} onNavigate={setScreen} />
 

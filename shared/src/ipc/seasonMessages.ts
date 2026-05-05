@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { PlayerLineupSchema } from '../sim/lineup';
 import { MatchBoxScoreSchema } from '../sim/boxScore';
 import { MatchTimelineSchema } from '../sim/timeline';
+import { PracticeFocusModifierSchema } from '../season/practiceFocus';
 
 // ─────────────────────────────────────────────────────────────
 // Worker-thread contract (main process ↔ simWorker thread)
@@ -14,6 +15,11 @@ export const WorkerSimRequest = z.object({
   homeLineup: PlayerLineupSchema,
   awayLineup: PlayerLineupSchema,
   seed: z.union([z.number().int(), z.string().min(1)]),
+  // Sprint 34: optional per-side practice-focus modifiers. When omitted,
+  // the worker passes `undefined` to simulateMatch and the calibration
+  // byte-equality invariant holds (CLAUDE.md §Critical rules #2).
+  homeModifier: PracticeFocusModifierSchema.optional(),
+  awayModifier: PracticeFocusModifierSchema.optional(),
 });
 export type WorkerSimRequest = z.infer<typeof WorkerSimRequest>;
 

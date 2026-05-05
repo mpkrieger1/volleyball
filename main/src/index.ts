@@ -6,6 +6,9 @@ import { configureCrashRecorder, isCrashRecorderEnabled, recordCrash } from './c
 import { createWindowOptions, rendererEntry } from './windowConfig';
 import { registerSaveSlotHandlers } from './ipc/saveSlotHandlers';
 import { registerMatchHandlers } from './ipc/matchHandlers';
+import { registerLiveMatchHandlers } from './ipc/liveMatchHandlers';
+import { autoSaveAllOnQuit } from './match/liveMatchService';
+import { findSlotDbPathById } from './saveSlots/service';
 import { registerScheduleHandlers } from './ipc/scheduleHandlers';
 import { registerSeasonHandlers, disposeAllSeasonPools } from './ipc/seasonHandlers';
 import { registerPollHandlers } from './ipc/pollHandlers';
@@ -15,6 +18,7 @@ import { registerRecruitingHandlers } from './ipc/recruitingHandlers';
 import { registerPortalHandlers } from './ipc/portalHandlers';
 import { registerNilHandlers } from './ipc/nilHandlers';
 import { registerOffseasonHandlers } from './ipc/offseasonHandlers';
+import { registerPracticeFocusHandlers } from './ipc/practiceFocusHandlers';
 import { registerCoachingHandlers } from './ipc/coachingHandlers';
 import { registerAwardsHandlers } from './ipc/awardsHandlers';
 import { registerScoutHandlers } from './ipc/scoutHandlers';
@@ -74,6 +78,7 @@ app.whenReady().then(() => {
   const deps = { baseDir, repoRoot: resolveRepoRoot() };
   registerSaveSlotHandlers(deps);
   registerMatchHandlers(deps);
+  registerLiveMatchHandlers(deps);
   registerScheduleHandlers(deps);
   registerSeasonHandlers(deps);
   registerPollHandlers(deps);
@@ -83,6 +88,7 @@ app.whenReady().then(() => {
   registerPortalHandlers(deps);
   registerNilHandlers(deps);
   registerOffseasonHandlers(deps);
+  registerPracticeFocusHandlers(deps);
   registerCoachingHandlers(deps);
   registerAwardsHandlers(deps);
   registerScoutHandlers(deps);
@@ -118,6 +124,17 @@ app.on('before-quit', async (evt) => {
   if (didDrainPools) return;
   evt.preventDefault();
   didDrainPools = true;
+  // Retro fix #3: auto-save in-flight live matches before shutdown so
+  // they survive as paused matches that can be resumed via the Match
+  // Hub Resume Live banner.
+  try {
+    const baseDir = process.env.VCD_USER_DATA ?? app.getPath('userData');
+    const deps = { baseDir, repoRoot: resolveRepoRoot() };
+    const result = await autoSaveAllOnQuit((slotId) => findSlotDbPathById(deps, slotId));
+    logLine(`live-mode auto-save: ${result.saved} saved, ${result.failed} failed`);
+  } catch (err) {
+    logLine(`live-mode auto-save failed: ${String(err)}`);
+  }
   await disposeAllSeasonPools();
   // Sprint 23: flush perf log under VCD_PERF=1; no-op otherwise.
   if (perf.isPerfEnabled()) {

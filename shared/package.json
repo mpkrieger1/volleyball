@@ -20,6 +20,10 @@
     "./sim/pbpCodec": {
       "types": "./dist/sim/pbpCodec.d.ts",
       "default": "./dist/sim/pbpCodec.js"
+    },
+    "./sim/live/state": {
+      "types": "./dist/sim/live/state.d.ts",
+      "default": "./dist/sim/live/state.js"
     }
   },
   "scripts": {

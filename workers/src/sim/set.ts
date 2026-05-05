@@ -5,8 +5,10 @@
 //   - Update momentum after every point; reset opposing momentum on timeout.
 //   - When useCoachAi is set, each team's coach AI may call a timeout between
 //     rallies based on the opponent's current run length.
+//
+// Sprint 34: passes optional homeModifier/awayModifier through to simulateRally.
 
-import { sim } from '@vcd/shared';
+import { sim, season } from '@vcd/shared';
 import { simulateRally } from './rally';
 
 export type TeamMatchState = {
@@ -49,6 +51,9 @@ export type SimulateSetInput = {
   targetScore?: number;
   useCoachAi?: boolean;
   initialMomentum?: sim.MomentumState;
+  /** Sprint 34: per-side practice-focus modifier. Pass-through to rally. */
+  homeModifier?: season.PracticeFocusModifier;
+  awayModifier?: season.PracticeFocusModifier;
 };
 
 const other = (t: sim.TeamSide): sim.TeamSide => (t === 'home' ? 'away' : 'home');
@@ -113,6 +118,8 @@ export function simulateSet(input: SimulateSetInput): SetResult {
       ...(home.system && { homeSystem: home.system }),
       ...(away.system && { awaySystem: away.system }),
       momentum,
+      ...(input.homeModifier && { homeModifier: input.homeModifier }),
+      ...(input.awayModifier && { awayModifier: input.awayModifier }),
     });
     rallies.push(rallyResult);
     rallyIdx += 1;

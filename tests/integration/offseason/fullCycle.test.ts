@@ -97,7 +97,13 @@ describe('PRD Sprint 16 invariants', () => {
     }
   }, 600_000);
 
-  it('exit test 2: starters grow more in attack than benchwarmers (p < 0.05)', async () => {
+  // Sprint 33 design pivot: the original Sprint 16 dev model
+  // (`computePlayerGrowth` scaled by playing time) was REPLACED by FCCD's
+  // coach-attribute-focus training event (TRAINING_RESULTS) which does
+  // NOT differentiate by playing time. v1.2 ships without this signal;
+  // v1.3 may re-introduce playing-time scaling via a coach-skill perk.
+  // CLAUDE.md "Sprint 32-33 player-development pivot" invariant.
+  it.skip('exit test 2: starters grow more in attack than benchwarmers (p < 0.05) — DELETED Sprint 37 (Sprint 33 design pivot)', async () => {
     // Fresh save (Sprint 16 flow) for this test.
     const freshDir = mkdtempSync(join(tmpdir(), 'vcd-offsim-xt2-'));
     const freshDb = join(freshDir, 'game.db');

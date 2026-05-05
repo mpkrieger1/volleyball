@@ -9,6 +9,7 @@ import { createRng, type Rng } from '../rng';
 import { FIRST_NAMES, LAST_NAMES, HOMETOWNS } from './nameData';
 import { POSITION_ARCHETYPES, POSITION_DISTRIBUTION } from './positionArchetypes';
 import { sampleStars, sampleBaseRating, samplePotential } from './starDistribution';
+import { deriveOverall } from '../stats/playerAggregate';
 import { applyArchetype, sampleHeight, weightedPick } from './ratings';
 import type { GeneratedRecruit, Position } from './types';
 
@@ -43,7 +44,17 @@ function buildRecruit(root: Rng, overrideNames?: { firstName: string; lastName: 
 
   const base = sampleBaseRating(ratingRng.fork('base'), stars);
   const ratings = applyArchetype(ratingRng.fork('per-key'), base, archetype);
-  const potential = samplePotential(ratingRng.fork('potential'), stars);
+  // Potential floor = current OVR + 5 headroom so the developmental
+  // ceiling never lands below the player's current ability (cf.
+  // playerGenerator.ts and shared/src/recruiting/starDistribution.ts).
+  // Recruits are HS players — even a 1-star kid has >= 5 points of
+  // upside above their current rating.
+  const overallNow = deriveOverall(position, ratings);
+  const potential = samplePotential(
+    ratingRng.fork('potential'),
+    stars,
+    Math.min(100, overallNow + 5),
+  );
   const height = sampleHeight(heightRng, archetype);
 
   return {

@@ -10,7 +10,7 @@
 // label + tick counter, so reordering statements within a state does not alter
 // results for a given seed.
 
-import { createRng, sim, type Rng } from '@vcd/shared';
+import { createRng, sim, season, type Rng } from '@vcd/shared';
 
 type PlayerLineup = sim.PlayerLineup;
 type RallyEvent = sim.RallyEvent;
@@ -59,7 +59,47 @@ export type SimulateRallyInput = {
   awaySystem?: SystemConfig;
   /** Momentum state at start of rally (Sprint 5). Biases attack kill rate. */
   momentum?: MomentumState;
+  /**
+   * Sprint 31 Task 31.3: per-team setter-dump probability when setter is
+   * at front-row. Triple-gated by step.ts (useLivePositionalRules +
+   * defensive hint + 5-1 + setter actually front-row); the FSM here just
+   * applies the roll. Undefined in sim-only path → byte-equality preserved.
+   */
+  setterDumpProb?: { home: number; away: number };
+  /**
+   * Sprint 34: per-side practice-focus modifier. When omitted (or all
+   * bonuses === 1.0), the apply step short-circuits via `applyBonus(d, k, 1)
+   * === d` (identity reference) — preserving byte-equality with the legacy
+   * sim path. Calibration invariant per CLAUDE.md §Critical rules #2.
+   */
+  homeModifier?: season.PracticeFocusModifier;
+  awayModifier?: season.PracticeFocusModifier;
 };
+
+/**
+ * Sprint 34: apply a multiplicative bonus to one key of a probability
+ * distribution and re-normalize. When `bonus === 1`, returns the input
+ * dist BY REFERENCE (no copy, no allocation) so the byte-equality
+ * calibration invariant holds for IDENTITY/absent modifiers.
+ *
+ * Generic preserves the full distribution shape so chained applyBonus
+ * calls on the same dist don't narrow the key union.
+ */
+function applyBonus<D extends Record<string, number>>(
+  dist: D,
+  key: keyof D & string,
+  bonus: number,
+): D {
+  if (bonus === 1) return dist;
+  const distRec = dist as unknown as Record<string, number>;
+  const updated: Record<string, number> = { ...distRec, [key]: (distRec[key] ?? 0) * bonus };
+  let sum = 0;
+  for (const k of Object.keys(updated)) sum += updated[k] ?? 0;
+  if (sum <= 0) return dist;
+  const out: Record<string, number> = {};
+  for (const k of Object.keys(updated)) out[k] = (updated[k] ?? 0) / sum;
+  return out as D;
+}
 
 type TeamContext = {
   lineup: PlayerLineup;
@@ -178,6 +218,12 @@ export function simulateRally(input: SimulateRallyInput): RallyResult {
   const servingTeam = input.servingTeam;
   let attackingTeam: TeamSide = other(servingTeam);
 
+  // Sprint 34: per-side modifier lookup. When undefined, applyBonus
+  // returns its input by reference and the rally is byte-equal to the
+  // legacy seed-only path.
+  const modOf = (side: TeamSide): season.PracticeFocusModifier | undefined =>
+    side === 'home' ? input.homeModifier : input.awayModifier;
+
   // ─── SERVE ────────────────────────────────────────────────────────────
   const srv = ctx[servingTeam];
   const rec = ctx[other(servingTeam)];
@@ -185,7 +231,8 @@ export function simulateRally(input: SimulateRallyInput): RallyResult {
   const serverR = srv.lineup.players[serverSlot]!;
   const receiverSlot = pickReceiver(rec);
   const receiverR = rec.lineup.players[receiverSlot]!;
-  const serveDist = serveOutcome(serverR, receiverR);
+  const serveDistRaw = serveOutcome(serverR, receiverR);
+  const serveDist = applyBonus(serveDistRaw, 'ace', modOf(servingTeam)?.serveBonus ?? 1);
   const serveKind = sample(serveDist, roll('serve'));
 
   if (serveKind === 'ace') {
@@ -223,7 +270,12 @@ export function simulateRally(input: SimulateRallyInput): RallyResult {
   tick += 1;
 
   // ─── RECEPTION ───────────────────────────────────────────────────────
-  const recDist = receptionOutcome(receiverR, inPlayQuality);
+  const recDistRaw = receptionOutcome(receiverR, inPlayQuality);
+  const recDist = applyBonus(
+    recDistRaw,
+    'perfect',
+    modOf(other(servingTeam))?.passBonus ?? 1,
+  );
   const recGrade = sample(recDist, roll('reception')) as ReceptionGrade;
   const recGradeNum: 0 | 1 | 2 | 3 =
     recGrade === 'perfect' ? 3 : recGrade === 'good' ? 2 : recGrade === 'ok' ? 1 : 0;
@@ -258,8 +310,32 @@ export function simulateRally(input: SimulateRallyInput): RallyResult {
     tick += 1;
 
     // ATTACK — validate front-row legality when rotation is provided.
-    const attackerSlot = pickAttacker(atk);
-    if (atk.rotation) {
+    // Sprint 31 Task 31.3: setter-dump branch. When setterDumpProb > 0
+    // for this team AND the just-picked setter is at a front-row position,
+    // roll dice; if dump, the attacker IS the setter (front-row, legal).
+    // Caller (step.ts) gates this by tactical hint + system + position;
+    // FSM just applies the roll. Sim-only path passes undefined → no dump.
+    let attackerSlot: number;
+    let isDumpEvent = false;
+    const dumpProb = input.setterDumpProb
+      ? (attackingTeam === 'home' ? input.setterDumpProb.home : input.setterDumpProb.away)
+      : 0;
+    if (dumpProb > 0 && atk.rotation) {
+      const setterPos = sim.positionOf(atk.rotation, setterSlot) as Position | null;
+      if (setterPos && !sim.isBackRow(setterPos)) {
+        if (roll('setter-dump') < dumpProb) {
+          attackerSlot = setterSlot;
+          isDumpEvent = true;
+        } else {
+          attackerSlot = pickAttacker(atk);
+        }
+      } else {
+        attackerSlot = pickAttacker(atk);
+      }
+    } else {
+      attackerSlot = pickAttacker(atk);
+    }
+    if (!isDumpEvent && atk.rotation) {
       const pos = sim.positionOf(atk.rotation, attackerSlot) as Position | null;
       if (pos && sim.isBackRow(pos)) {
         events.push({
@@ -277,7 +353,20 @@ export function simulateRally(input: SimulateRallyInput): RallyResult {
     const momentumBias = input.momentum
       ? sim.attackMomentumBonus(input.momentum, attackingTeam)
       : 0;
-    const atkDist = attackOutcome(attackerR, blockerR, setQ, momentumBias);
+    const atkDistRaw = attackOutcome(attackerR, blockerR, setQ, momentumBias);
+    // Sprint 34: practice focus boosts attack-side `kill` probability and
+    // defense-side `blocked` probability. Applied sequentially so both
+    // teams' modifiers compose multiplicatively.
+    const atkDistAfterAttack = applyBonus(
+      atkDistRaw,
+      'kill',
+      modOf(attackingTeam)?.attackBonus ?? 1,
+    );
+    const atkDist = applyBonus(
+      atkDistAfterAttack,
+      'blocked',
+      modOf(other(attackingTeam))?.blockBonus ?? 1,
+    );
     const outcome = sample(atkDist, roll('attack'));
     events.push({ kind: 'attack', tick, team: attackingTeam, attacker: attackerSlot, outcome });
     tick += 1;
@@ -303,7 +392,12 @@ export function simulateRally(input: SimulateRallyInput): RallyResult {
     // outcome === 'dug'
     const diggerSlot = pickDigger(def);
     const diggerR = def.lineup.players[diggerSlot]!;
-    const digDist = digOutcome(diggerR);
+    const digDistRaw = digOutcome(diggerR);
+    const digDist = applyBonus(
+      digDistRaw,
+      'kept',
+      modOf(other(attackingTeam))?.digBonus ?? 1,
+    );
     const digK = sample(digDist, roll('dig'));
     const digGrade: 0 | 1 | 2 = digK === 'kept' ? 2 : 0;
     events.push({

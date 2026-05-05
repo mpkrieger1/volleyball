@@ -12,6 +12,13 @@ import { applyArchetype } from '../recruiting/ratings';
 import { sampleBaseRating, samplePotential, type Stars } from '../recruiting/starDistribution';
 import type { Position } from '../recruiting/types';
 import type { PlayerRatings } from '../sim/ratings';
+import { deriveOverall } from '../stats/playerAggregate';
+
+/** Headroom added on top of OVR when sampling potential floor. Keeps every
+ *  fresh-generated player with at least this much developmental ceiling
+ *  above their current ability. 5 points = "noticeable upside" without
+ *  forcing every 5-star to peak at 100. */
+const POTENTIAL_HEADROOM_OVER_OVR = 5;
 
 export type ClassYear = 'FR' | 'SO' | 'JR' | 'SR';
 
@@ -99,7 +106,15 @@ export function generateRosterForTeam(
     const base = sampleBaseRating(localRng.fork('base'), stars);
     const archetype = POSITION_ARCHETYPES[slot.position];
     const ratings = applyArchetype(localRng.fork('per-key'), base, archetype);
-    const potential = samplePotential(localRng.fork('potential'), stars);
+    // Compute OVR FIRST so potential's floor can be clamped to OVR + headroom.
+    // Without this, a low-end Gaussian draw could produce potential < OVR,
+    // violating the "developmental ceiling" semantic.
+    const overall = deriveOverall(slot.position, ratings);
+    const potential = samplePotential(
+      localRng.fork('potential'),
+      stars,
+      Math.min(100, overall + POTENTIAL_HEADROOM_OVER_OVR),
+    );
     const height = sampleHeight(localRng.fork('height'), archetype);
 
     // Unique jersey 1-99 per team.

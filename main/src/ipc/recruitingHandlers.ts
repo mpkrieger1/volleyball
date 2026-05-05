@@ -6,6 +6,7 @@ import { openRecruitingCycle } from '../recruiting/openRecruitingCycle';
 import { performAction } from '../recruiting/performAction';
 import { advanceRecruitingWeek } from '../recruiting/advanceRecruitingWeek';
 import { closeRecruitingCycle } from '../recruiting/closeRecruitingCycle';
+import { loadHcChampionships } from '../recruiting/championships';
 
 export function registerRecruitingHandlers(deps: SaveSlotServiceDeps): void {
   ipcMain.handle(recruitingIpc.RECRUITING_IPC_CHANNELS.open, async (_e, raw: unknown) => {
@@ -434,6 +435,81 @@ export function registerRecruitingHandlers(deps: SaveSlotServiceDeps): void {
         const scoutLevel = myInterest?.scoutLevel ?? 0;
         const scoutReport = buildScoutReport(recruit.ratingsJson, scoutLevel);
 
+        // ── Sprint 37 Task 37.4: priorities + pitch + recruiter quality + NIL ──
+        // Priorities: parse stored JSON; default to neutral 5/5/5/5/0 for
+        // legacy rows. wantsToLeaveHome stored on the row.
+        let priorities: recruiting.RecruitPriorities = {
+          playingTime: 5,
+          proximityToHome: 5,
+          prestige: 5,
+          facilities: 5,
+          nilDeal: 0,
+        };
+        if (recruit.prioritiesJson) {
+          try {
+            priorities = JSON.parse(
+              recruit.prioritiesJson,
+            ) as recruiting.RecruitPriorities;
+          } catch {
+            // bad JSON → keep neutral
+          }
+        }
+
+        // Pitch reasons + recruiter quality require this team's coaching
+        // staff + championship history.
+        const team = await client.team.findUnique({
+          where: { id: req.teamId },
+          select: {
+            region: true,
+            nilBudgetCents: true,
+            nilBudgetUsedCents: true,
+          },
+        });
+        const teamCoaches = await client.coach.findMany({
+          where: { teamId: req.teamId },
+          select: {
+            id: true,
+            role: true,
+            ratingRecruit: true,
+            hometownState: true,
+            hireSeason: true,
+          },
+        });
+        const hc = teamCoaches.find((c) => c.role === 'HC');
+        const hcChampionships = hc
+          ? await loadHcChampionships({
+              client,
+              teamId: req.teamId,
+              hcId: hc.id,
+              hcHireSeason: hc.hireSeason,
+            })
+          : null;
+
+        const pitch =
+          team && recruit.hometownState
+            ? recruiting.computePitchReasons({
+                team: { id: req.teamId, region: team.region },
+                coaches: teamCoaches.map((c) => ({
+                  id: c.id,
+                  role: c.role as 'HC' | 'AHC' | 'AC',
+                  hometownState: c.hometownState,
+                })),
+                hcChampionships,
+                recruit: {
+                  id: recruit.id,
+                  stars: recruit.stars,
+                  hometownState: recruit.hometownState,
+                  hometownRegion: recruit.hometownRegion ?? 'CENTRAL',
+                },
+              })
+            : { reasons: [], totalActivePoints: 0 };
+
+        const recruiterQualityByCoach = teamCoaches.map((c) => ({
+          coachId: c.id,
+          role: c.role as 'HC' | 'AHC' | 'AC',
+          quality: recruiting.getRecruiterQuality(c.ratingRecruit),
+        }));
+
         return {
           ok: true as const,
           detail: {
@@ -452,7 +528,93 @@ export function registerRecruitingHandlers(deps: SaveSlotServiceDeps): void {
             scoutReport,
             interestMeter,
             actionsSpent: myInterest?.actionsSpent ?? 0,
+            // Sprint 37 additions
+            priorities,
+            wantsToLeaveHome: recruit.wantsToLeaveHome,
+            pitchReasons: pitch.reasons,
+            recruiterQualityByCoach,
+            nilBudgetCents: team?.nilBudgetCents ?? 0,
+            nilBudgetUsedCents: team?.nilBudgetUsedCents ?? 0,
+            nilOfferCents: myInterest?.nilOfferCents ?? 0,
           },
+        };
+      } finally {
+        await client.$disconnect();
+      }
+    } catch (err) {
+      return {
+        ok: false as const,
+        error: { code: 'INTERNAL' as const, message: (err as Error).message },
+      };
+    }
+  });
+
+  // Sprint 36: setNilOffer — user adjusts NIL allocation. Atomic update of
+  // Team.nilBudgetUsedCents (decrement old offer, increment new) +
+  // RecruitInterest.nilOfferCents.
+  ipcMain.handle(recruitingIpc.RECRUITING_IPC_CHANNELS.setNilOffer, async (_e, raw: unknown) => {
+    try {
+      const req = recruitingIpc.SetNilOfferRequest.parse(raw);
+      const dbPath = await findSlotDbPathById(deps, req.slotId);
+      if (!dbPath) {
+        return {
+          ok: false as const,
+          error: { code: 'NOT_FOUND' as const, message: `slot ${req.slotId} not found` },
+        };
+      }
+      const client = new PrismaClient({ datasources: { db: { url: `file:${dbPath}` } } });
+      try {
+        const [team, existing] = await Promise.all([
+          client.team.findUnique({
+            where: { id: req.teamId },
+            select: { nilBudgetCents: true, nilBudgetUsedCents: true },
+          }),
+          client.recruitInterest.findUnique({
+            where: {
+              recruitId_teamId: { recruitId: req.recruitId, teamId: req.teamId },
+            },
+            select: { nilOfferCents: true },
+          }),
+        ]);
+        if (!team) {
+          return {
+            ok: false as const,
+            error: { code: 'NOT_FOUND' as const, message: 'team not found' },
+          };
+        }
+        const previousOffer = existing?.nilOfferCents ?? 0;
+        const delta = req.offerCents - previousOffer;
+        const projected = team.nilBudgetUsedCents + delta;
+        if (projected > team.nilBudgetCents) {
+          return {
+            ok: false as const,
+            error: {
+              code: 'INTERNAL' as const,
+              message: `Offer exceeds NIL budget. Used+offer=${projected}, budget=${team.nilBudgetCents}`,
+            },
+          };
+        }
+        await client.$transaction([
+          client.recruitInterest.upsert({
+            where: {
+              recruitId_teamId: { recruitId: req.recruitId, teamId: req.teamId },
+            },
+            create: {
+              recruitId: req.recruitId,
+              teamId: req.teamId,
+              nilOfferCents: req.offerCents,
+            },
+            update: { nilOfferCents: req.offerCents },
+          }),
+          client.team.update({
+            where: { id: req.teamId },
+            data: { nilBudgetUsedCents: projected },
+          }),
+        ]);
+        return {
+          ok: true as const,
+          nilOfferCents: req.offerCents,
+          nilBudgetUsedCents: projected,
         };
       } finally {
         await client.$disconnect();

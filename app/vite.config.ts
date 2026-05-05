@@ -21,6 +21,10 @@ export default defineConfig({
         replacement: path.resolve(__dirname, '../shared/src/seed/leagueSeed'),
       },
       {
+        find: /^@vcd\/shared\/sim\/live\/state$/,
+        replacement: path.resolve(__dirname, '../shared/src/sim/live/state'),
+      },
+      {
         find: /^@vcd\/shared(\/.*)?$/,
         replacement: path.resolve(__dirname, '../shared/src') + '$1',
       },

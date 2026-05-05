@@ -10,6 +10,9 @@ import {
   resolveSaveSlotsRoot,
   type SaveSlotPathEnv,
 } from './paths';
+import { backfillFacilitiesLevel } from './backfillFacilitiesLevel';
+import { backfillRecruitingCore } from './backfillRecruitingCore';
+import { backfillNilBudget } from './backfillNilBudget';
 
 export class SaveSlotError extends Error {
   constructor(
@@ -334,6 +337,22 @@ export async function openSaveSlot(
               });
             }
           }
+
+          // Sprint 32: legacy-save backfill for Team.facilitiesLevel.
+          // The migration adds the column with default 3 for every row;
+          // bump high-prestige teams up to their tier-derived value.
+          // Idempotent — see `backfillFacilitiesLevel`.
+          await backfillFacilitiesLevel(reopened);
+
+          // Sprint 35: legacy-save backfill for the recruiting core
+          // (priorities + academics + coach hometown). Idempotent —
+          // see `backfillRecruitingCore`.
+          await backfillRecruitingCore(reopened, deps.repoRoot);
+
+          // Sprint 36: legacy-save backfill for Team NIL budget. Idempotent —
+          // see `backfillNilBudget`.
+          await backfillNilBudget(reopened);
+
           const updated = await reopened.saveSlot.update({
             where: { id: row.id },
             data: { lastOpenedAt: new Date() },

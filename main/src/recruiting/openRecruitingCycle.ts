@@ -114,8 +114,11 @@ export async function openRecruitingCycle(
     // Sprint 25: rank by `computeBoardScore` (adds star bonus + per-team
     // jitter) so different teams pick different lower-tier recruits and
     // every recruit lands on at least some boards. Persisted interest is
-    // still `computeBaseInterest` to preserve Sprint 13 commit-resolution
-    // semantics.
+    // the unjittered base (`computeRecruitTeamInterestScaled`) so Sprint 13
+    // commit-resolution semantics (`interest^5` weighting,
+    // shouldDecide thresholds) hold. Sprint 37: wrapper deletion —
+    // `computeBaseInterest` removed; `computeRecruitTeamInterestScaled`
+    // is the priority-helper bridge with magnitude scale + floor penalty.
     for (const team of teams) {
       const teamCtx = {
         teamId: team.id,
@@ -130,7 +133,7 @@ export async function openRecruitingCycle(
             stars: r.stars as 1 | 2 | 3 | 4 | 5,
             hometownRegion: r.hometownRegion ?? 'CENTRAL',
           };
-          const base = recruiting.computeBaseInterest(recruitCtx, teamCtx);
+          const base = recruiting.computeRecruitTeamInterestScaled(recruitCtx, teamCtx);
           const rank = recruiting.computeBoardScore(
             { ...recruitCtx, recruitId: r.id },
             teamCtx,

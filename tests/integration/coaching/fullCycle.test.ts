@@ -93,6 +93,11 @@ describe('PRD Sprint 17 invariants', () => {
       });
     }
 
+    // Sprint 37 (Task 37.5b): 17-player roster cap means signing day
+    // promotes all commits as overflow → UNCOMMITTED unless slots are
+    // freed first. Simulate the offseason graduation step by removing
+    // SR and FR players so signing day has room to land freshmen.
+    await client.player.deleteMany({ where: { classYear: { in: ['SR', 'FR'] } } });
     // Run a full recruiting cycle.
     await openRecruitingCycle({
       dbPath,

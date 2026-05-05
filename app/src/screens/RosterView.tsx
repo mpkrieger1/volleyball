@@ -145,6 +145,8 @@ export function RosterView() {
         </p>
       </header>
 
+      {userTeam && <ProgramInfo prestige={userTeam.prestige} />}
+
       <nav
         className="recruiting-board__tabs"
         role="tablist"
@@ -394,5 +396,130 @@ function RosterStatsTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+// ─── Program info panel ──────────────────────────────────────────────────
+// Shows the team's prestige with a tier label and an expandable
+// explainer covering current behavior + planned future factors. Honest
+// about what's modeled today vs. what's a v1.x backlog item.
+
+const PRESTIGE_TIER_THRESHOLDS: ReadonlyArray<{ min: number; label: string; pursue: string }> = [
+  { min: 70, label: 'Blueblood', pursue: 'recruits 5-stars' },
+  { min: 50, label: 'Power program', pursue: 'recruits 4-stars' },
+  { min: 30, label: 'Mid-major', pursue: 'recruits 3-stars' },
+  { min: 15, label: 'Low-major', pursue: 'recruits 2-stars' },
+  { min: 0, label: 'D-I bottom', pursue: 'recruits 1-stars' },
+];
+
+function tierFor(prestige: number): { label: string; pursue: string } {
+  for (const t of PRESTIGE_TIER_THRESHOLDS) {
+    if (prestige >= t.min) return { label: t.label, pursue: t.pursue };
+  }
+  return { label: 'Unrated', pursue: 'unknown' };
+}
+
+function ProgramInfo({ prestige }: { prestige: number }) {
+  const [open, setOpen] = useState(false);
+  const tier = tierFor(prestige);
+  return (
+    <section className="program-info" aria-labelledby="program-info-heading">
+      <header className="program-info__head">
+        <div className="program-info__stat">
+          <span className="program-info__label">Prestige</span>
+          <strong className="program-info__value">{prestige}</strong>
+          <span className="program-info__tier">({tier.label})</span>
+        </div>
+        <button
+          type="button"
+          className="program-info__toggle"
+          aria-expanded={open}
+          aria-controls="program-info-body"
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? 'Hide details' : 'How prestige works'}
+        </button>
+      </header>
+      {open && (
+        <div id="program-info-body" className="program-info__body">
+          <h3 id="program-info-heading">About your program</h3>
+
+          <h4>What prestige does today</h4>
+          <p>
+            Prestige (0-100) is the dominant factor in how recruits view your
+            program. Combined with their star rating it produces base
+            interest:{' '}
+            <code>prestige × stars</code>. Each star tier expects a minimum
+            prestige (5★ = 70, 4★ = 50, 3★ = 30, 2★ = 15) — falling below that
+            floor costs 12 interest points per shortfall point.
+          </p>
+          <p>Examples at <strong>prestige {prestige}</strong> ({tier.label}):</p>
+          <ul>
+            {([5, 4, 3, 2] as const).map((stars) => {
+              const floor = { 5: 70, 4: 50, 3: 30, 2: 15 }[stars];
+              const base = prestige * stars;
+              const penalty = prestige < floor ? (floor - prestige) * 12 : 0;
+              const score = Math.max(0, base - penalty);
+              const verdict = score >= 200 ? 'in the race' : score >= 100 ? 'on the bubble' : 'out of reach';
+              return (
+                <li key={stars}>
+                  {stars}-star recruit: base {base}
+                  {penalty > 0 && ` − ${penalty} (below ${floor} floor)`}
+                  {' '}= <strong>{score}</strong> interest → {verdict}
+                </li>
+              );
+            })}
+          </ul>
+          <p>
+            Prestige also drives <em>operating budget</em> (more prestige =
+            larger coach salary cap), <em>booster collective budget</em>{' '}
+            (NIL), and the average rating of synthetically-generated lineups
+            during fallback paths.
+          </p>
+
+          <h4>How prestige changes year-to-year</h4>
+          <p>
+            <strong>Today, prestige is static.</strong> It&apos;s loaded from the
+            real-world program ratings at league seed and never changes for
+            the rest of the dynasty. This is a known v1.0 gap.
+          </p>
+          <p>v1.x is planned to evolve prestige based on:</p>
+          <ul>
+            <li>NCAA tournament finishes (national title = +3, Final Four = +2, S16 = +1, miss tourney for 3+ years = −1)</li>
+            <li>Sustained record (5-year rolling W% above .700 = +1, below .400 = −1)</li>
+            <li>Coach reputation (Hall-of-Fame HC retiring = +1; high HC turnover = −1)</li>
+            <li>Conference realignment moves (deferred to v2 per PRD)</li>
+          </ul>
+          <p>
+            Until that ships, your prestige is locked at <strong>{prestige}</strong>{' '}
+            for the entire dynasty. Use it as a measuring stick for which
+            recruits are realistic, not something to optimize for.
+          </p>
+
+          <h4>Other school factors (FCCD-style)</h4>
+          <p>
+            FCCD models several non-prestige factors that influence recruit
+            interest: facilities, academics, campus life, atmosphere, scheme
+            fit, NIL deal quality. <strong>None of these exist yet in VCD.</strong>{' '}
+            They&apos;re called out as &ldquo;deferred — needs new team props&rdquo; in the
+            recruiting interest model. v1.x backlog items for when we add
+            them:
+          </p>
+          <ul>
+            <li><strong>Facilities</strong> — practice gym + training room rating; recruits weight this for development potential.</li>
+            <li><strong>Academics</strong> — graduation rate / academic profile; matters more for top programs.</li>
+            <li><strong>Campus life</strong> — student-experience score; soft factor for recruits weighing fit.</li>
+            <li><strong>Scheme fit</strong> — your offensive system (5-1 / 6-2) vs. the recruit&apos;s preferred role.</li>
+            <li><strong>Atmosphere</strong> — home-attendance rating; part of &ldquo;feel&rdquo; of the program.</li>
+            <li><strong>NIL deal quality</strong> — booster collective budget already exists, but isn&apos;t surfaced as a recruit-facing factor yet.</li>
+          </ul>
+          <p>
+            For v1, prestige + region (proximity to recruit&apos;s home state) +
+            HC.recruit rating + open scholarships at the recruit&apos;s position
+            are the only signals.
+          </p>
+        </div>
+      )}
+    </section>
   );
 }

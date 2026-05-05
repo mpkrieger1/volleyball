@@ -8,7 +8,11 @@ import { resolve } from 'node:path';
 import type { PrismaClient } from '@prisma/client';
 import { ConferenceSchema, TeamSchema, type ConferenceInput, type TeamInput } from '../domain/team';
 import { TEAM_REGION_OVERRIDES } from './teamRegions';
-import { createRng } from '../rng';
+import { loadTeamAcademics } from './teamAcademicsLoader';
+// Re-export so downstream callers can `import { loadTeamAcademics } from
+// '@vcd/shared/seed'` (the package.json sub-path resolves here).
+export { loadTeamAcademics } from './teamAcademicsLoader';
+import { createRng, type Rng } from '../rng';
 import { FIRST_NAMES, LAST_NAMES } from '../recruiting/nameData';
 import { weightedPick } from '../recruiting/ratings';
 import { generateRosterForTeam } from '../roster/playerGenerator';
@@ -193,6 +197,82 @@ export function deriveOperatingBudgetCents(prestige: number): number {
 }
 
 /**
+ * Sprint 35 Task 35.3 — synthesize a 2-letter US state code for a coach.
+ * 60% chance the state is in the team's region (locality bias); 40% any
+ * random state. Deterministic per coach.id + role + team.abbr seed.
+ */
+export const STATES_BY_REGION: Record<string, readonly string[]> = {
+  EAST: ['MA', 'NY', 'NJ', 'PA', 'CT', 'RI', 'VT', 'NH', 'ME', 'MD', 'DE', 'VA', 'NC', 'SC', 'GA', 'FL', 'WV', 'DC'],
+  CENTRAL: ['OH', 'IN', 'IL', 'MI', 'WI', 'MN', 'IA', 'MO', 'KS', 'NE', 'SD', 'ND', 'KY', 'TN', 'AL', 'MS', 'AR', 'LA', 'TX', 'OK'],
+  MOUNTAIN: ['MT', 'WY', 'CO', 'UT', 'ID', 'NV', 'AZ', 'NM'],
+  PACIFIC: ['CA', 'OR', 'WA', 'AK', 'HI'],
+};
+export const ALL_US_STATES: readonly string[] = [
+  ...STATES_BY_REGION.EAST!,
+  ...STATES_BY_REGION.CENTRAL!,
+  ...STATES_BY_REGION.MOUNTAIN!,
+  ...STATES_BY_REGION.PACIFIC!,
+];
+
+export function deriveCoachHometownState(
+  rng: Rng,
+  teamRegion: string,
+): string {
+  const local = STATES_BY_REGION[teamRegion];
+  if (local && local.length > 0 && rng.next() < 0.6) {
+    return local[rng.int(0, local.length - 1)]!;
+  }
+  return ALL_US_STATES[rng.int(0, ALL_US_STATES.length - 1)]!;
+}
+
+/**
+ * Sprint 36: prestige-tier annual NIL budget (cents). Refreshed at
+ * SIGNING_DAY each cycle.
+ *
+ *   prestige ≥ 90 → $300k
+ *   prestige ≥ 75 → $200k
+ *   prestige ≥ 60 → $150k
+ *   prestige ≥ 45 → $80k
+ *   prestige ≥ 30 → $50k
+ *   else          → $30k (floor)
+ *
+ * Cap = $300k. Floor = $30k. The slim 6-tier table tracks FCCD's general
+ * shape (NIL budgets cluster in $30k-$300k range for D-I women's volleyball).
+ */
+export function deriveNilBudget(prestige: number): number {
+  let dollars: number;
+  if (prestige >= 90) dollars = 300_000;
+  else if (prestige >= 75) dollars = 200_000;
+  else if (prestige >= 60) dollars = 150_000;
+  else if (prestige >= 45) dollars = 80_000;
+  else if (prestige >= 30) dollars = 50_000;
+  else dollars = 30_000;
+  return dollars * 100; // cents
+}
+
+/**
+ * Sprint 32: prestige-tier facilities level (1..10) seeded into Team.
+ * High-prestige programs feel a small training advantage from day one.
+ * Sprint 33's training event reads this column.
+ *
+ *   prestige ≥ 90 → 7
+ *   prestige ≥ 75 → 5
+ *   prestige ≥ 50 → 4
+ *   else          → 3 (= schema default)
+ *
+ * The "= schema default" branch is load-bearing: `backfillFacilitiesLevel`
+ * (in `main/src/saveSlots/`) keys idempotency on "row still at default 3,
+ * derived value > 3" — a low-prestige team that already sits at 3 is a
+ * no-op on re-run.
+ */
+export function deriveFacilitiesLevel(prestige: number): number {
+  if (prestige >= 90) return 7;
+  if (prestige >= 75) return 5;
+  if (prestige >= 50) return 4;
+  return 3;
+}
+
+/**
  * Sprint 15: derive a seasonal booster-collective budget (cents) from
  * team prestige. Blue-bloods get meaningful NIL budgets; low-majors
  * land in the low-five-figure range. Clamped [$20k, $550k].
@@ -237,6 +317,8 @@ export async function seedLeagueInto(
 ): Promise<{ conferences: number; teams: number; coaches: number; players: number; boosters: number }> {
   const confs = loadConferencesFrom(repoRoot);
   const teams = loadTeamsFrom(repoRoot);
+  // Sprint 35: load academics CSV (mirrors Sprint 32 facilities pattern).
+  const academicsByAbbr = loadTeamAcademics(repoRoot);
 
   await prisma.booster.deleteMany();
   await prisma.player.deleteMany();
@@ -265,32 +347,43 @@ export async function seedLeagueInto(
         logoPath: t.logoPath,
         region: TEAM_REGION_OVERRIDES[t.abbr] ?? 'CENTRAL',
         operatingBudgetCents: deriveOperatingBudgetCents(t.prestige),
+        facilitiesLevel: deriveFacilitiesLevel(t.prestige),
+        academicsLevel: academicsByAbbr.get(t.abbr) ?? 50,
+        nilBudgetCents: deriveNilBudget(t.prestige),
       })),
     }),
   ]);
 
   // Seed HC + AHC + AC per team (Sprint 17). Teams now have assigned ids.
   const persistedTeams = await prisma.team.findMany({
-    select: { id: true, abbr: true, prestige: true },
+    select: { id: true, abbr: true, prestige: true, region: true },
   });
+  const teamRegionById = new Map(persistedTeams.map((t) => [t.id, t.region]));
   const staff = buildStaffForTeams(persistedTeams);
   const staffChunk = 500;
   for (let off = 0; off < staff.length; off += staffChunk) {
     await prisma.coach.createMany({
-      data: staff.slice(off, off + staffChunk).map((c) => ({
-        firstName: c.firstName,
-        lastName: c.lastName,
-        role: c.role,
-        teamId: c.teamId,
-        ratingRecruit: c.ratingRecruit,
-        ratingDevelop: c.ratingDevelop,
-        ratingStrategy: c.ratingStrategy,
-        // Sprint 28: real contract values seeded from role + prestige.
-        // The Player schema stores `salary` (cents). hireSeason defaults
-        // to 2026 in the schema.
-        salary: c.salaryCents,
-        contractYears: c.contractYears,
-      })),
+      data: staff.slice(off, off + staffChunk).map((c) => {
+        const region = teamRegionById.get(c.teamId) ?? 'CENTRAL';
+        // Sprint 35: deterministic per-coach hometown synthesis.
+        const homeRng = createRng(`coach-home:${c.teamId}:${c.role}:${c.firstName}:${c.lastName}`);
+        const hometownState = deriveCoachHometownState(homeRng, region);
+        return {
+          firstName: c.firstName,
+          lastName: c.lastName,
+          role: c.role,
+          teamId: c.teamId,
+          ratingRecruit: c.ratingRecruit,
+          ratingDevelop: c.ratingDevelop,
+          ratingStrategy: c.ratingStrategy,
+          // Sprint 28: real contract values seeded from role + prestige.
+          // The Player schema stores `salary` (cents). hireSeason defaults
+          // to 2026 in the schema.
+          salary: c.salaryCents,
+          contractYears: c.contractYears,
+          hometownState,
+        };
+      }),
     });
   }
 

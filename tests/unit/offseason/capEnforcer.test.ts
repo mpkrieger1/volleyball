@@ -3,30 +3,33 @@ import { offseason } from '@vcd/shared';
 
 const mk = (id: string, overall: number) => ({ id, overall });
 
+// Sprint 37 (Task 37.5b): cap aligned to MAX_ROSTER_SIZE = 17 (Sprint 28).
+// Roster sizes in these tests scaled accordingly: 17 → no cuts; 18 → 1 cut;
+// 22 → 5 cuts (was 15/16/20 pre-Sprint-37).
 describe('enforceScholarshipCap', () => {
-  it('roster of 15 → no cuts', () => {
-    const roster = Array.from({ length: 15 }, (_, i) => mk(`p${i}`, 50 + i));
+  it('roster of 17 → no cuts', () => {
+    const roster = Array.from({ length: 17 }, (_, i) => mk(`p${i}`, 50 + i));
     const r = offseason.enforceScholarshipCap(roster);
     expect(r.cut).toHaveLength(0);
-    expect(r.kept).toHaveLength(15);
+    expect(r.kept).toHaveLength(17);
   });
 
-  it('roster of 16 → 1 cut (lowest overall)', () => {
+  it('roster of 18 → 1 cut (lowest overall)', () => {
     const roster = [
       mk('weakest', 40),
-      ...Array.from({ length: 15 }, (_, i) => mk(`p${i}`, 70 + i)),
+      ...Array.from({ length: 17 }, (_, i) => mk(`p${i}`, 70 + i)),
     ];
     const r = offseason.enforceScholarshipCap(roster);
     expect(r.cut).toHaveLength(1);
     expect(r.cut[0]!.id).toBe('weakest');
-    expect(r.kept).toHaveLength(15);
+    expect(r.kept).toHaveLength(17);
   });
 
-  it('roster of 20 → 5 cuts, all from the lowest tail', () => {
-    const roster = Array.from({ length: 20 }, (_, i) => mk(`p${i}`, i * 5));
+  it('roster of 22 → 5 cuts, all from the lowest tail', () => {
+    const roster = Array.from({ length: 22 }, (_, i) => mk(`p${i}`, i * 5));
     const r = offseason.enforceScholarshipCap(roster);
     expect(r.cut).toHaveLength(5);
-    expect(r.kept).toHaveLength(15);
+    expect(r.kept).toHaveLength(17);
     for (const c of r.cut) {
       expect(c.overall).toBeLessThan(Math.min(...r.kept.map((k) => k.overall)) + 1);
     }
@@ -35,7 +38,7 @@ describe('enforceScholarshipCap', () => {
   it('ties broken by playerId.localeCompare', () => {
     const roster = [
       mk('a-1', 60), mk('b-2', 60), mk('c-3', 60), mk('d-4', 60),
-      ...Array.from({ length: 13 }, (_, i) => mk(`z${i}`, 80 + i)),
+      ...Array.from({ length: 15 }, (_, i) => mk(`z${i}`, 80 + i)),
     ];
     const r = offseason.enforceScholarshipCap(roster);
     expect(r.cut).toHaveLength(2);
@@ -44,16 +47,16 @@ describe('enforceScholarshipCap', () => {
     expect(cutIds).toEqual(['c-3', 'd-4']);
   });
 
-  it('scale — 360 teams × 20 players each', () => {
+  it('scale — 360 teams × 22 players each', () => {
     for (let t = 0; t < 360; t++) {
-      const roster = Array.from({ length: 20 }, (_, i) => mk(`t${t}-p${i}`, 50 + (i % 40)));
+      const roster = Array.from({ length: 22 }, (_, i) => mk(`t${t}-p${i}`, 50 + (i % 40)));
       const r = offseason.enforceScholarshipCap(roster);
-      expect(r.kept).toHaveLength(15);
+      expect(r.kept).toHaveLength(17);
       expect(r.cut).toHaveLength(5);
     }
   });
 
-  it('SCHOLARSHIP_CAP exported as 15', () => {
-    expect(offseason.SCHOLARSHIP_CAP).toBe(15);
+  it('SCHOLARSHIP_CAP exported as 17', () => {
+    expect(offseason.SCHOLARSHIP_CAP).toBe(17);
   });
 });

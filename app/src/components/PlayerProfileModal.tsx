@@ -14,7 +14,7 @@
 // money convention.
 
 import { useEffect, useRef } from 'react';
-import type { rosterIpc } from '@vcd/shared';
+import { offseason, type rosterIpc } from '@vcd/shared';
 
 type Props = {
   profile: rosterIpc.PlayerProfile | null;
@@ -69,6 +69,16 @@ const RATING_LABELS: Array<{ key: keyof rosterIpc.PlayerRatings; label: string }
   { key: 'iq', label: 'IQ' },
   { key: 'stamina', label: 'Stamina' },
 ];
+
+// Sprint 32: per-skill headroom indicator using the FCCD gain curve.
+// Color-blind safe — icon + text label, not color alone.
+const HEADROOM_CURVE = offseason.lineFunc(40, 1.5, 100, 0.25);
+function headroomFor(rating: number): { label: string; icon: string } {
+  const curve = Math.max(0, Math.min(2, HEADROOM_CURVE(rating)));
+  if (curve > 1.0) return { label: 'Wide open', icon: '▲' };
+  if (curve > 0.5) return { label: 'Some room', icon: '◆' };
+  return { label: 'Capped', icon: '■' };
+}
 
 export function PlayerProfileModal({ profile, loading, error, onClose }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -226,6 +236,7 @@ export function PlayerProfileModal({ profile, loading, error, onClose }: Props) 
               <ul className="player-profile-modal__ratings-grid" aria-label="Skill ratings">
                 {RATING_LABELS.map((r) => {
                   const value = profile.ratings[r.key];
+                  const headroom = headroomFor(value);
                   return (
                     <li key={r.key} className="player-profile-modal__rating-item">
                       <span className="player-profile-modal__rating-label">{r.label}</span>
@@ -243,6 +254,13 @@ export function PlayerProfileModal({ profile, loading, error, onClose }: Props) 
                           className="player-profile-modal__rating-bar-fill"
                           style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
                         />
+                      </span>
+                      <span
+                        className="player-profile-modal__rating-headroom"
+                        data-testid={`headroom-${r.key}`}
+                      >
+                        <span aria-hidden="true">{headroom.icon}</span>
+                        <span> {headroom.label}</span>
                       </span>
                     </li>
                   );

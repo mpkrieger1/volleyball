@@ -4,6 +4,8 @@ import { axe } from 'jest-axe';
 import { StaffView } from '../../app/src/screens/StaffView';
 import { useCoachingStore } from '../../app/src/store/useCoachingStore';
 import { useSaveSlotsStore } from '../../app/src/store/useSaveSlotsStore';
+import { useUserTeamStore } from '../../app/src/store/useUserTeamStore';
+import { useScheduleStore } from '../../app/src/store/useScheduleStore';
 
 const staff = [
   {
@@ -100,6 +102,17 @@ beforeEach(() => {
     error: null,
     openedSlotId: 'slot-1',
   });
+  // Sprint 28: StaffView early-returns a placeholder when userTeamId is null.
+  // Tests need to set a user team to actually render staff rows.
+  useUserTeamStore.setState({ userTeamId: 'team-1', status: 'ready', error: null });
+  useScheduleStore.setState({
+    teams: [{ id: 'team-1', schoolName: 'Nebraska', abbr: 'NEB' } as never],
+    selectedTeamId: 'team-1',
+    rows: [],
+    status: 'ready',
+    error: null,
+    stats: null,
+  });
 });
 
 describe('<StaffView />', () => {
@@ -107,8 +120,11 @@ describe('<StaffView />', () => {
     makeVcd();
     render(<StaffView />);
     await waitFor(() => {
-      expect(screen.getByText('Jane Smith')).toBeInTheDocument();
-      expect(screen.getByText('Bob Jones')).toBeInTheDocument();
+      // Sprint 28: StaffView renders <strong>{lastName}</strong><span>{firstName}</span>;
+      // the full "Jane Smith" string is split across elements. Match the
+      // last name in the strong element instead.
+      expect(screen.getByText('Smith', { selector: 'strong' })).toBeInTheDocument();
+      expect(screen.getByText('Jones', { selector: 'strong' })).toBeInTheDocument();
     });
   });
 
@@ -116,14 +132,14 @@ describe('<StaffView />', () => {
     makeVcd();
     render(<StaffView />);
     await waitFor(() => {
-      expect(screen.getByText('Max Power')).toBeInTheDocument();
+      expect(screen.getByText('Power', { selector: 'strong' })).toBeInTheDocument();
     });
   });
 
   it('fires a coach when Fire is clicked', async () => {
     makeVcd();
     render(<StaffView />);
-    await waitFor(() => expect(screen.getByText('Jane Smith')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Smith', { selector: 'strong' })).toBeInTheDocument());
     const fireBtns = screen.getAllByRole('button', { name: 'Fire' });
     fireEvent.click(fireBtns[0]!);
     await waitFor(() => {
@@ -138,7 +154,7 @@ describe('<StaffView />', () => {
   it('opens hire dialog and confirms a hire', async () => {
     makeVcd();
     render(<StaffView />);
-    await waitFor(() => expect(screen.getByText('Max Power')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Power', { selector: 'strong' })).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Hire' }));
     const confirm = await screen.findByRole('button', { name: 'Confirm hire' });
     fireEvent.click(confirm);
@@ -158,7 +174,7 @@ describe('<StaffView />', () => {
   it('is axe-clean', async () => {
     makeVcd();
     const { container } = render(<StaffView />);
-    await waitFor(() => expect(screen.getByText('Jane Smith')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Smith', { selector: 'strong' })).toBeInTheDocument());
     const results = await axe(container);
     expect(results.violations).toEqual([]);
   });

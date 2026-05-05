@@ -1,12 +1,19 @@
 // Sprint 28 Task 28.5B: recruit detail modal.
+// Sprint 37 Task 37.4: slots in the 4 Sprint 36 sub-components
+// (PrioritiesReadout, PitchReasonsCard, ScoutTierIndicator, NilOfferSlider)
+// against the extended getRecruitDetail IPC payload.
 //
-// Two sub-tabs (Battle, Scouting). User picked modal layout (Q6=B). Action
-// buttons sit in the modal footer; clicking one fires recruiting.action via
-// the store's performAction. ESC closes; click-outside closes.
+// Two sub-tabs (Battle, Scouting). Action buttons sit in the modal
+// footer; clicking one fires recruiting.action via the store's
+// performAction. ESC closes; click-outside closes.
 
 import { useEffect, useRef, useState } from 'react';
 import type { recruitingIpc } from '@vcd/shared';
 import { InterestMeter } from './InterestMeter';
+import { PrioritiesReadout } from './PrioritiesReadout';
+import { PitchReasonsCard } from './PitchReasonsCard';
+import { ScoutTierIndicator } from './ScoutTierIndicator';
+import { NilOfferSlider } from './NilOfferSlider';
 
 type Tab = 'battle' | 'scouting';
 
@@ -24,9 +31,18 @@ type Props = {
   budgetRemaining: number;
   onAction: (action: recruitingIpc.RecruitingActionType) => void;
   onClose: () => void;
+  /** Sprint 37 Task 37.4: NIL slider confirm hook. */
+  onSetNilOffer?: (offerCents: number) => void;
 };
 
-export function RecruitDetailModal({ detail, loading, budgetRemaining, onAction, onClose }: Props) {
+export function RecruitDetailModal({
+  detail,
+  loading,
+  budgetRemaining,
+  onAction,
+  onClose,
+  onSetNilOffer,
+}: Props) {
   const [tab, setTab] = useState<Tab>('battle');
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -124,9 +140,43 @@ export function RecruitDetailModal({ detail, loading, budgetRemaining, onAction,
             </nav>
 
             <div role="tabpanel" className="recruit-detail-modal__panel">
-              {tab === 'battle' && <InterestMeter rows={detail.interestMeter} />}
+              {tab === 'battle' && (
+                <>
+                  <InterestMeter rows={detail.interestMeter} />
+                  <PrioritiesReadout
+                    priorities={detail.priorities}
+                    wantsToLeaveHome={detail.wantsToLeaveHome}
+                  />
+                  {detail.pitchReasons.length > 0 && (
+                    <div
+                      className="recruit-detail-modal__pitch-row"
+                      data-testid="pitch-reasons-row"
+                    >
+                      {detail.pitchReasons.map((r) => (
+                        <PitchReasonsCard key={r.type} reason={r} />
+                      ))}
+                    </div>
+                  )}
+                  {onSetNilOffer && (
+                    <NilOfferSlider
+                      recruitStars={detail.stars}
+                      priorities={detail.priorities}
+                      currentOfferCents={detail.nilOfferCents}
+                      budgetCents={detail.nilBudgetCents}
+                      budgetUsedCents={detail.nilBudgetUsedCents}
+                      onConfirm={onSetNilOffer}
+                    />
+                  )}
+                </>
+              )}
               {tab === 'scouting' && (
-                <ScoutReport rows={detail.scoutReport} scoutLevel={detail.scoutLevel} />
+                <>
+                  <ScoutTierIndicator
+                    scoutLevel={detail.scoutLevel}
+                    budgetRemaining={budgetRemaining}
+                  />
+                  <ScoutReport rows={detail.scoutReport} scoutLevel={detail.scoutLevel} />
+                </>
               )}
             </div>
 

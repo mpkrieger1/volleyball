@@ -1,6 +1,7 @@
 import { SaveSlots } from './screens/SaveSlots';
 import { SeasonHub } from './screens/SeasonHub';
 import { MatchHub } from './screens/MatchHub';
+import { LivePlayHub } from './screens/LivePlayHub';
 import { ScheduleView } from './screens/ScheduleView';
 import { RosterView } from './screens/RosterView';
 import { DepthChartView } from './screens/DepthChartView';
@@ -293,6 +294,7 @@ export function App() {
       })()}
       {screen === 'season-hub' && <SeasonHub />}
       {screen === 'match-hub' && <MatchHub />}
+      {screen === 'live-play' && <LivePlayHub />}
       {screen === 'schedule' && <ScheduleView />}
       {screen === 'roster' && <RosterView />}
       {screen === 'depth-chart' && <DepthChartView />}

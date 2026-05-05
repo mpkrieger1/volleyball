@@ -2,7 +2,10 @@
 //   - For SIGNED entries: move Player.teamId to the new team, create
 //     NilDeal if an offer was attached.
 //   - For ACTIVE entries: mark UNSIGNED (player stays on origin team).
-//   - Transition Season.phase to 'RECRUITING' (next step in the loop).
+//
+// Sprint 33: the auto-open-recruiting side effect (Sprint 31 retro) is
+// rolled back. Phase management now belongs to `advanceOffseasonEvent` —
+// closePortal no longer writes Season.phase.
 //
 // Exit test 3 is trivially satisfied: Player.teamId is a single field;
 // we update it once per SIGNED entry inside a single atomic transaction.
@@ -56,7 +59,7 @@ export async function closePortal(input: ClosePortalInput): Promise<ClosePortalR
 
         await tx.season.update({
           where: { id: season.id },
-          data: { phase: 'RECRUITING', portalWeek: 0 },
+          data: { portalWeek: 0 },
         });
 
         return unsignedRes;

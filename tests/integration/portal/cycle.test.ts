@@ -37,10 +37,13 @@ afterAll(async () => {
 });
 
 describe('portal cycle (integration)', () => {
-  it('full-league roster seeded: ~4,320 players', async () => {
+  // Sprint 28 expanded per-team roster from 12 → 17 (POSITION_MIX rewrite).
+  // 360 teams × 17 = 6120 players. Original Sprint 14 bounds (4300-4400)
+  // are stale; widened to match the post-Sprint-28 roster sizes.
+  it('full-league roster seeded: ~6,120 players', async () => {
     const count = await client.player.count();
-    expect(count).toBeGreaterThanOrEqual(4300);
-    expect(count).toBeLessThanOrEqual(4400);
+    expect(count).toBeGreaterThanOrEqual(6000);
+    expect(count).toBeLessThanOrEqual(6500);
   });
 
   it('openPortal creates TransferPortal + PortalInterest rows and sets phase', async () => {
@@ -115,8 +118,13 @@ describe('portal cycle (integration)', () => {
     expect(result.signedCount).toBeGreaterThan(0);
     const active = await client.transferPortal.count({ where: { status: 'ACTIVE' } });
     expect(active).toBe(0);
+    // Sprint 33: closePortal no longer writes Season.phase. Phase
+    // management belongs to `advanceOffseasonEvent`. Pre-Sprint-33 the
+    // close transaction set phase='RECRUITING' (the auto-open-recruiting
+    // retro from Sprint 31, also rolled back). The close still resets
+    // portalWeek to 0.
     const season = await client.season.findFirst();
-    expect(season!.phase).toBe('RECRUITING');
+    expect(season!.portalWeek).toBe(0);
   });
 
   it('no player appears on two teams after close', async () => {

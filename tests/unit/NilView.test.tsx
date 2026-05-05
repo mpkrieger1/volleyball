@@ -51,6 +51,10 @@ function makeVcd() {
         totalSpent: 100_000_00,
         remaining: 300_000_00,
         enthusiasm: 50,
+        // Sprint 28: NIL window-open gate — Save/Revoke buttons are disabled
+        // when isOpen is false. Tests need both flags set.
+        phase: 'RECRUITING',
+        isOpen: true,
         roster: [
           mkRow({ firstName: 'Alice', position: 'OH', overall: 88, currentNilCents: 50_000_00 }),
           mkRow({ firstName: 'Bob', position: 'MB', overall: 75, currentNilCents: 0 }),
@@ -76,7 +80,9 @@ beforeEach(() => {
     error: null,
   });
   useSaveSlotsStore.setState({ slots: [], status: 'idle', error: null, openedSlotId: 'slot-1' });
-  useUserTeamStore.setState({ userTeamId: null, status: 'ready', error: null });
+  // Sprint 28: NilView early-returns a placeholder when userTeamId is null.
+  // Tests that exercise actions need a non-null user team.
+  useUserTeamStore.setState({ userTeamId: 'team-1', status: 'ready', error: null });
 });
 
 describe('<NilView />', () => {

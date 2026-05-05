@@ -74,6 +74,21 @@ const mkDetail = (recruitId: string) => ({
     { teamId: 'team-2', teamAbbr: 'STAN', interest: 700, isUserTeam: false },
   ],
   actionsSpent: 2,
+  // Sprint 37 Task 37.4: extended payload (priorities, pitch reasons,
+  // recruiter quality, NIL).
+  priorities: {
+    playingTime: 5,
+    proximityToHome: 5,
+    prestige: 5,
+    facilities: 5,
+    nilDeal: 0,
+  },
+  wantsToLeaveHome: false,
+  pitchReasons: [],
+  recruiterQualityByCoach: [],
+  nilBudgetCents: 0,
+  nilBudgetUsedCents: 0,
+  nilOfferCents: 0,
 });
 
 function makeVcd(recruits: Recruit[]) {

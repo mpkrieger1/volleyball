@@ -82,6 +82,30 @@ describe('closeRecruitingCycle — Sprint 24 Recruit→Player promotion', () => 
     const teams = await client.team.findMany({ take: 2, orderBy: { abbr: 'asc' } });
     teamA = teams[0]!.id;
     teamB = teams[1]!.id;
+
+    // Sprint 28: 17-player roster cap is now enforced in closeRecruitingCycle.
+    // The seed builds full 17-player rosters, so removing graduating SR players
+    // simulates the post-PLAYERS_LEAVING state of an offseason where roster
+    // slots opened up for incoming commits.
+    const teamAPlayers = await client.player.findMany({
+      where: { teamId: teamA },
+      orderBy: { id: 'asc' },
+      take: 3,
+      select: { id: true },
+    });
+    await client.player.deleteMany({
+      where: { id: { in: teamAPlayers.map((p) => p.id) } },
+    });
+    const teamBPlayers = await client.player.findMany({
+      where: { teamId: teamB },
+      orderBy: { id: 'asc' },
+      take: 1,
+      select: { id: true },
+    });
+    await client.player.deleteMany({
+      where: { id: { in: teamBPlayers.map((p) => p.id) } },
+    });
+
     // Seed COMMITTED for teamA (3 recruits across positions) + teamB (1)
     await makeRecruit({ position: 'OH', commitState: 'COMMITTED', commitTeamId: teamA });
     await makeRecruit({ position: 'MB', commitState: 'COMMITTED', commitTeamId: teamA });

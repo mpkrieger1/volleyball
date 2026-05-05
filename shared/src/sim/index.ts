@@ -24,3 +24,8 @@ export * from './pbp';
 // export in package.json. Do NOT add `export * from './pbpCodec'` here.
 export * from './pbpFormat';
 export { TUNING, type Tuning } from './tuning';
+// Sprint 29: live-mode state schema. Pure types + zod, no Node-only
+// imports — safe to re-export from this barrel. Renderer + tests can
+// still use the @vcd/shared/sim/live/state sub-path export when they
+// want a narrower import surface.
+export * from './live/state';

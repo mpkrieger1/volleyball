@@ -74,9 +74,14 @@ describe('runOffseason (integration)', () => {
     }
   });
 
-  it('updates Season.phase to PRESEASON and increments year', async () => {
+  it('lands at REGULAR with year+1 (Sprint 33: runOffseason walks all 16 events through FINALIZE)', async () => {
     const season = await client.season.findFirst();
-    expect(season!.phase).toBe('PRESEASON');
+    // Sprint 33: the offseason → preseason → regular event sequence is
+    // now driven by `advanceOffseasonEvent`. `runOffseason` is a thin
+    // loop that walks all events including FINALIZE which sets
+    // phase=REGULAR. Pre-Sprint-33 this assertion was 'PRESEASON' from
+    // the original single-transaction implementation.
+    expect(season!.phase).toBe('REGULAR');
     expect(season!.year).toBe(2027);
     expect(season!.currentWeek).toBe(0);
     expect(season!.nationalChampionTeamId).toBeNull();

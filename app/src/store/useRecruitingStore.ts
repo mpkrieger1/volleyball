@@ -50,6 +50,13 @@ type RecruitingState = {
   openDetail: (slotId: string, teamId: string, recruitId: string) => Promise<void>;
   closeDetail: () => void;
   loadHeader: (slotId: string, teamId: string) => Promise<void>;
+  /** Sprint 37 Task 37.4: NIL slider confirm hook. */
+  setNilOffer: (
+    slotId: string,
+    teamId: string,
+    recruitId: string,
+    offerCents: number,
+  ) => Promise<void>;
 };
 
 export const useRecruitingStore = create<RecruitingState>((set, get) => ({
@@ -158,6 +165,23 @@ export const useRecruitingStore = create<RecruitingState>((set, get) => ({
     }
     if (n.ok) {
       set({ teamNeeds: n.needs });
+    }
+  },
+  async setNilOffer(slotId, teamId, recruitId, offerCents) {
+    const res = await window.vcd.recruiting.setNilOffer({
+      slotId,
+      teamId,
+      recruitId,
+      offerCents,
+    });
+    if (!res.ok) {
+      set({ error: res.error.message });
+      return;
+    }
+    // Reload the modal payload so the new offer + budget reflect.
+    const fresh = await window.vcd.recruiting.detail(slotId, teamId, recruitId);
+    if (fresh.ok) {
+      set({ detail: fresh.detail });
     }
   },
 }));

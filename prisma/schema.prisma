@@ -56,6 +56,25 @@ model Team {
   /// wires this column into match dispatch. Values: '5-1' | '6-2'.
   preferredSystem String @default("5-1")
 
+  /// Sprint 32: facilities tier (1..10) feeding the FCCD-style training
+  /// gain floor. Seeded by prestige in `seedLeagueInto` and back-filled
+  /// for legacy saves on `openSaveSlot`. Sprint 33 reads it from the
+  /// training event.
+  facilitiesLevel Int @default(3)
+
+  /// Sprint 35: 0..100 academic profile. Reserved priority slot in the
+  /// FCCD priorities-x-levels recruiting model. v1.2 doesn't weight
+  /// academics as a recruit priority yet (Q1 picked the 5-priority slim
+  /// set); Sprint 36 may add it.
+  academicsLevel Int @default(50)
+
+  /// Sprint 36: annual NIL budget pool (cents). Seeded from prestige tier
+  /// at fresh save, refreshed at SIGNING_DAY each cycle. The user/AI
+  /// allocate slices to specific recruits via RecruitInterest.nilOfferCents.
+  nilBudgetCents     Int @default(0)
+  /// Sprint 36: running spend this cycle. Reset to 0 at SIGNING_DAY.
+  nilBudgetUsedCents Int @default(0)
+
   players          Player[]
   coaches          Coach[]
   coachBuyouts     CoachBuyout[]
@@ -64,6 +83,9 @@ model Team {
   polls            Poll[]
   rpiSnapshots     RPISnapshot[]
   boosters         Booster[]
+  trainingFocusPicks   TrainingFocusPick[]
+  trainingResultEntries TrainingResultEntry[]
+  practiceFocusPicks   PracticeFocusPick[]
 
   @@index([conferenceId])
 }
@@ -105,6 +127,7 @@ model Player {
   matchStats   PlayerMatchStat[]
   nilDeals     NilDeal[]
   portalEntries TransferPortal[]
+  trainingResultEntries TrainingResultEntry[]
 
   @@index([teamId])
 }
@@ -143,8 +166,13 @@ model Coach {
   careerWins     Int    @default(0)
   /// Sprint 17: season the coach was hired by current team (for buyout math).
   hireSeason     Int    @default(2026)
+  /// Sprint 35: 2-letter US state code; consumed by Sprint 36's
+  /// CoachConnection pitch reason. Nullable for legacy rows; backfill
+  /// populates synthetically (deterministic per coach.id).
+  hometownState  String?
 
-  buyouts CoachBuyout[]
+  buyouts            CoachBuyout[]
+  trainingFocusPicks TrainingFocusPick[]
 
   @@index([teamId])
   @@index([teamId, role])
@@ -212,6 +240,19 @@ model Recruit {
   committedAtWeek Int?
   seasonYear      Int?
 
+  /// Sprint 35: FCCD-style priority weights. JSON
+  /// {playingTime, proximityToHome, prestige, facilities, nilDeal}, each
+  /// 0..10. Nullable for legacy rows; backfill is deterministic per id.
+  prioritiesJson    String?
+  /// Sprint 35: 15% of recruits want to leave their home region. Flips
+  /// proximity polarity in `derivePriorityLevels`.
+  wantsToLeaveHome  Boolean @default(false)
+  /// Sprint 35: derived state-machine label
+  /// ("EXPLORING" | "NARROWING" | "FAVORITES" | "WILL_COMMIT_SOON" |
+  /// "COMMITTED"). Recomputed each weekly tick; commitState='COMMITTED'
+  /// delegates to "COMMITTED".
+  commitmentStatus  String  @default("EXPLORING")
+
   interests RecruitInterest[]
 
   @@index([commitState])
@@ -230,12 +271,24 @@ model RecruitInterest {
   recruitId     String
   recruit       Recruit @relation(fields: [recruitId], references: [id], onDelete: Cascade)
   teamId        String
+  /// Sprint 13: 0..MAX_INTEREST. Pre-Sprint-37 this stored a delta-patched
+  /// cumulative value. Sprint 37: now derived = base + earnedPoints,
+  /// recomputed each AI tick / user action so live team-attribute changes
+  /// (facilities upgrade, prestige change) reflect within one tick.
   interest      Int     @default(0)
+  /// Sprint 37: cumulative weekly action delta. AI ticks + user actions
+  /// add to this; never recomputed from scratch. The displayed `interest`
+  /// rides on top of it via `interest = base + earnedPoints`.
+  earnedPoints  Int     @default(0)
   actionsSpent  Int     @default(0)
   /// Sprint 28 Task 28.5B: 0..3 scout-report reveal level. Each SCOUT
   /// action bumps this by 1; the recruit-detail modal uses it to decide
   /// which skill letter-grades to show.
   scoutLevel    Int     @default(0)
+  /// Sprint 36: NIL offer to this recruit (cents). Slice of the team's
+  /// nilBudgetCents. Converted to interest points by
+  /// `convertNilOfferToPoints` (see shared/src/recruiting/nilOffer.ts).
+  nilOfferCents Int     @default(0)
 
   @@unique([recruitId, teamId])
   @@index([teamId])
@@ -352,6 +405,16 @@ model Match {
   /// ticker for banner overlays. Schema = MatchTimelineSchema in
   /// `shared/src/sim/timeline.ts`. Null until a match completes.
   timelineJson String?
+  /// Sprint 29 Task 29.5: serialized LiveMatchState when a live match is
+  /// paused mid-play. Cleared on completion or "Sim Rest." Schema =
+  /// `LiveMatchStateSchema` in `@vcd/shared/sim/live/state`. Null for
+  /// sim-only matches and completed live matches.
+  liveStateJson String?
+  /// Sprint 29 Task 29.6: serialized coach-action audit trail for matches
+  /// played in Live mode. NULL for sim-only matches; "[]" or non-empty
+  /// JSON array for live matches (even if no coach actions were taken).
+  /// Schema = `CoachActionLogSchema` in `@vcd/shared/sim/live/coachActions`.
+  coachActionsJson String?
 
   sets       Set[]
   playerStats PlayerMatchStat[]
@@ -470,6 +533,64 @@ model Season {
   recruitingWeek Int @default(0)
   /// Sprint 14: current portal-cycle week (0..6). 0 = cycle not open.
   portalWeek     Int @default(0)
+  /// Sprint 33: index within the current phase's event sequence.
+  /// OFFSEASON has 11 events; PRESEASON has 5. User advances one event
+  /// at a time via `advanceOffseasonEvent`.
+  phaseWeek      Int @default(0)
+}
+
+/// Sprint 33: persisted user-chosen coach attribute focuses for the
+/// TRAINING_RESULTS event. 9 picks per team (3 coaches × 3 slots).
+/// AI teams generate picks lazily inside `applyTrainingResults`.
+model TrainingFocusPick {
+  id         String   @id @default(cuid())
+  seasonYear Int
+  teamId     String
+  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  coachId    String
+  coach      Coach    @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  slotIndex  Int      // 0..2
+  attribute  String   // one of TrainableSkill
+  createdAt  DateTime @default(now())
+
+  @@unique([seasonYear, teamId, coachId, slotIndex])
+  @@index([seasonYear, teamId])
+}
+
+/// Sprint 34: per-week user-team practice focus picks. AI teams' picks
+/// are NOT persisted — computed on the fly. Practice focus is a per-match
+/// sim modifier (~3-5%); does NOT mutate ratings.
+model PracticeFocusPick {
+  id           String   @id @default(cuid())
+  seasonYear   Int
+  week         Int      // regular-season week 0..13
+  teamId       String
+  team         Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  offenseFocus String   // OffensePracticeFocus enum value
+  defenseFocus String   // DefensePracticeFocus enum value
+  createdAt    DateTime @default(now())
+
+  @@unique([seasonYear, week, teamId])
+  @@index([seasonYear, teamId])
+}
+
+/// Sprint 33: audit trail for the TRAINING_RESULTS event. One row per
+/// (player, attribute) pair that received a gain. Acts as the idempotency
+/// key — `applyTrainingResults` no-ops if rows exist for the seasonYear.
+model TrainingResultEntry {
+  id              String   @id @default(cuid())
+  seasonYear      Int
+  teamId          String
+  team            Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  playerId        String
+  player          Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  attribute       String
+  gainApplied     Int
+  wasBreakthrough Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@index([seasonYear, teamId])
+  @@index([playerId])
 }
 
 model Award {

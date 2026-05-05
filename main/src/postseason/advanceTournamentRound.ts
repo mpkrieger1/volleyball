@@ -265,9 +265,15 @@ export async function advanceTournamentRound(
           const season = await tx.season.findFirst({ orderBy: { year: 'desc' } });
           if (season) {
             // Sprint 18: compute AA awards inside the same transaction as the
-            // NCAA_CHAMP → OFFSEASON transition. Idempotent: skips if Award
-            // rows already exist for this seasonYear.
+            // NCAA_CHAMP transition. Idempotent: skips if Award rows already
+            // exist for this seasonYear.
             await computeSeasonAwards(tx, season.year);
+            // Sprint 37 (Task 37.5b): rolled back the Sprint 31 retro
+            // auto-open-portal-after-NCAA_CHAMP. Per Sprint 33, phase
+            // management belongs to `advanceOffseasonEvent` exclusively —
+            // closing the championship game transitions phase to OFFSEASON,
+            // and the user walks the offseason event sequence (which opens
+            // portal at PLAYERS_TRANSFERRING).
             await tx.season.update({
               where: { id: season.id },
               data: {

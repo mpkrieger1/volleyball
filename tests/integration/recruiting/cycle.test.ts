@@ -106,21 +106,31 @@ describe('recruiting cycle (integration, small class)', () => {
     expect(interestRowCount).toBeGreaterThan(0);
 
     // Advance 9 more weeks (we're at recruitingWeek=1 → advance to 10).
+    // Sprint 37: with pitch reasons + per-tick recompute, recruits may
+    // all commit before week 10 in small classes — leaving some weeks
+    // with 0 AI actions (no PENDING rows left). Aggregate-over-cycle
+    // is the meaningful assertion.
+    let totalAiActions = 0;
     for (let i = 0; i < 9; i++) {
       const r = await advanceRecruitingWeek({
         dbPath,
         userTeamId: null,
         seed: `adv:w${i}`,
       });
-      expect(r.aiActionsApplied).toBeGreaterThan(0);
+      totalAiActions += r.aiActionsApplied;
     }
+    expect(totalAiActions).toBeGreaterThan(0);
     const committed = await client.recruit.count({ where: { commitState: 'COMMITTED' } });
     expect(committed).toBeGreaterThan(0);
   }, 60_000);
 
-  it('closeRecruitingCycle forces all PENDING to UNCOMMITTED', async () => {
+  it('closeRecruitingCycle leaves zero PENDING and transitions to OFFSEASON', async () => {
+    // Sprint 37 Task 37.3: with pitch reasons added, every PENDING recruit
+    // may have committed by week 10 (uncommittedCount can be 0). The
+    // invariant we care about is: post-close, no recruit is PENDING and
+    // the season transitions back to OFFSEASON.
     const result = await closeRecruitingCycle({ dbPath });
-    expect(result.uncommittedCount).toBeGreaterThan(0);
+    expect(result.uncommittedCount).toBeGreaterThanOrEqual(0);
     const pending = await client.recruit.count({ where: { commitState: 'PENDING' } });
     expect(pending).toBe(0);
     const season = await client.season.findFirst();

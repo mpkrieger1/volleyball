@@ -3,7 +3,7 @@
 // Match + PlayerMatchStat rows in a transaction, return the box score.
 
 import { PrismaClient } from '@prisma/client';
-import { sim, perf } from '@vcd/shared';
+import { sim, season, perf } from '@vcd/shared';
 import * as pbpCodec from '@vcd/shared/sim/pbpCodec';
 import { simulateMatch, buildMatchTimeline, type TeamMatchState } from '@vcd/workers';
 import { lineupFromTeam } from './lineupFromTeam';
@@ -14,6 +14,10 @@ export type SimulateAndPersistInput = {
   homeTeamId: string;
   awayTeamId: string;
   seed: number | string;
+  /** Sprint 34: optional per-side practice-focus modifiers. When omitted,
+   *  the sim path is byte-equal to pre-Sprint-34 (calibration invariant). */
+  homeModifier?: season.PracticeFocusModifier;
+  awayModifier?: season.PracticeFocusModifier;
 };
 
 export type SimulateAndPersistResult = {
@@ -71,6 +75,8 @@ export async function simulateAndPersistMatch(
       away: awayTeam,
       initialServer: 'home',
       useCoachAi: true,
+      ...(input.homeModifier && { homeModifier: input.homeModifier }),
+      ...(input.awayModifier && { awayModifier: input.awayModifier }),
     });
 
     const boxScore = sim.computeBoxScore(match);

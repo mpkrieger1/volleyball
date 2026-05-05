@@ -4,12 +4,14 @@
 // known. Dual-team picker is preserved as a fallback for legacy saves
 // where userTeamId is null (Sprint 21 user-team-picker hadn't fired).
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { sim } from '@vcd/shared';
 import { useMatchHubStore } from '../store/useMatchHubStore';
 import { useSaveSlotsStore } from '../store/useSaveSlotsStore';
 import { useUserTeamStore } from '../store/useUserTeamStore';
 import { useScheduleStore } from '../store/useScheduleStore';
+import { useLivePlayStore } from '../store/useLivePlayStore';
+import { useNavStore } from '../store/useNavStore';
 import type { ReplaySpeed } from '../match/replayScheduler';
 
 const SPEEDS: ReplaySpeed[] = ['1x', '2x', '4x', 'instant'];
@@ -121,6 +123,10 @@ export function MatchHub() {
         </p>
       </header>
 
+      {/* Retro fix #2: Resume Live banner */}
+      <ResumeLiveBanner slotId={openedSlotId} />
+
+
       {userTeamId && (phase === 'select' || phase === 'loading-teams' || phase === 'ready-to-play' || phase === 'loading-scout') && (
         <UserTeamMatchList
           rows={scheduleRows}
@@ -213,6 +219,19 @@ export function MatchHub() {
 
       {scout && awayTeam && (
         <ScoutPanel scout={scout} awayName={awayTeam.schoolName} />
+      )}
+
+      {/* Sprint 29 Task 29.4: Play (Live) launcher. Shows when both teams are
+          selected and we haven't already kicked off a sim/replay. */}
+      {selectedHomeId && selectedAwayId && selectedHomeId !== selectedAwayId &&
+       (phase === 'select' || phase === 'ready-to-play') && openedSlotId && (
+        <PlayLiveButton
+          slotId={openedSlotId}
+          homeTeamId={selectedHomeId}
+          awayTeamId={selectedAwayId}
+          homeName={teams.find((t) => t.id === selectedHomeId)?.schoolName ?? 'Home'}
+          awayName={teams.find((t) => t.id === selectedAwayId)?.schoolName ?? 'Away'}
+        />
       )}
 
       {showReplayControls && match && (
@@ -546,6 +565,94 @@ function phaseLabel(phase: string): string {
     case 'error': return 'Error.';
     default: return phase;
   }
+}
+
+// Retro fix #2: Resume Live banner. Queries the DB for matches with
+// non-null liveStateJson on mount and surfaces a Resume button per match.
+function ResumeLiveBanner({ slotId }: { slotId: string }) {
+  const [paused, setPaused] = useState<Array<{
+    matchId: string;
+    homeTeamName: string;
+    awayTeamName: string;
+    setIndex: number;
+    homeScore: number;
+    awayScore: number;
+    setsHome: number;
+    setsAway: number;
+  }>>([]);
+  const resumeMatch = useLivePlayStore((s) => s.resumeMatch);
+  const setScreen = useNavStore((s) => s.setScreen);
+  const refreshTick = useLivePlayStore((s) => s.phase); // re-query when live phase changes
+
+  useEffect(() => {
+    let cancelled = false;
+    void window.vcd.match.live.listPaused(slotId).then((res) => {
+      if (cancelled) return;
+      if (res.ok) setPaused(res.matches);
+    });
+    return () => { cancelled = true; };
+  }, [slotId, refreshTick]);
+
+  if (paused.length === 0) return null;
+  return (
+    <div role="region" aria-labelledby="resume-live-heading" className="match-hub__resume-banner">
+      <h2 id="resume-live-heading">Resume paused match{paused.length > 1 ? 'es' : ''}</h2>
+      <ul>
+        {paused.map((m) => (
+          <li key={m.matchId}>
+            <span>
+              {m.homeTeamName} {m.setsHome} – {m.setsAway} {m.awayTeamName}
+              {' · '}
+              Set {m.setIndex + 1}: {m.homeScore}–{m.awayScore}
+            </span>
+            <button
+              type="button"
+              onClick={async () => {
+                await resumeMatch(slotId, m.matchId, m.homeTeamName, m.awayTeamName);
+                setScreen('live-play');
+              }}
+            >
+              Resume Live
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function PlayLiveButton(props: {
+  slotId: string;
+  homeTeamId: string;
+  awayTeamId: string;
+  homeName: string;
+  awayName: string;
+}) {
+  const startNewMatch = useLivePlayStore((s) => s.startNewMatch);
+  const setScreen = useNavStore((s) => s.setScreen);
+  const phase = useLivePlayStore((s) => s.phase);
+  const onClick = async () => {
+    await startNewMatch(
+      props.slotId,
+      props.homeTeamId,
+      props.awayTeamId,
+      props.homeName,
+      props.awayName,
+    );
+    setScreen('live-play');
+  };
+  return (
+    <div className="match-hub__live-launch" role="group" aria-label="Live play">
+      <button
+        type="button"
+        onClick={() => void onClick()}
+        disabled={phase === 'starting'}
+        title="Play this match live, rally by rally, with full coach control."
+      >
+        {phase === 'starting' ? 'Starting…' : 'Play (Live)'}
+      </button>
+    </div>
+  );
 }
 
 function ScoutPanel(props: {

@@ -34,9 +34,9 @@ export async function advancePortalWeek(
   try {
     const season = await client.season.findFirst({ orderBy: { year: 'desc' } });
     if (!season) throw new Error('No Season row.');
-    if (season.phase !== 'PORTAL') {
-      throw new Error(`Season.phase must be PORTAL (got ${season.phase}).`);
-    }
+    // Sprint 33: phase check removed. Portal now runs inside the
+    // PLAYERS_TRANSFERRING event of the OFFSEASON sequence — caller is in
+    // OFFSEASON phase but using portalWeek as the loop counter.
     const week = season.portalWeek;
 
     const [teams, coaches] = await Promise.all([

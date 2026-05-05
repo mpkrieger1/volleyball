@@ -1863,9 +1863,201 @@ button:hover {
 }
 .player-profile-modal__rating-item {
   display: grid;
-  grid-template-columns: 90px 32px 1fr;
+  grid-template-columns: 90px 32px 1fr 90px;
   align-items: center;
   gap: 8px;
+}
+/* Sprint 32: per-skill headroom indicator (icon + text). Color-blind safe;
+   the text label is the primary signal — the icon adds redundancy. */
+.player-profile-modal__rating-headroom {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Sprint 33: event-aware offseason panel + training focus picker. */
+.offseason-event-panel {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--border, #2a2f37);
+  border-radius: 6px;
+}
+.offseason-panel__results-list {
+  margin: 8px 0 16px;
+  padding: 0 0 0 16px;
+  font-size: var(--fs-meta);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.training-focus-picker__panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+.training-focus-picker__panel {
+  border: 1px solid var(--border, #2a2f37);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.training-focus-picker__coach {
+  font-size: var(--fs-meta);
+  margin-bottom: 8px;
+}
+.training-focus-picker__rating {
+  color: var(--muted);
+  margin-left: 6px;
+}
+.training-focus-picker__slots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.training-focus-picker__slot label {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-meta);
+}
+.training-focus-picker__slot-label {
+  color: var(--muted);
+}
+.training-focus-picker__advance {
+  margin-top: 12px;
+}
+
+/* Sprint 34: weekly practice focus picker. Compact card on the SeasonHub. */
+.practice-focus-picker {
+  border: 1px solid var(--border, #2a2f37);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin: 12px 0;
+}
+.practice-focus-picker__heading {
+  font-size: var(--fs-h3, 14px);
+  margin: 0 0 8px;
+}
+.practice-focus-picker__controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 8px;
+}
+.practice-focus-picker__controls label {
+  display: grid;
+  gap: 4px;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+.practice-focus-picker__reset {
+  align-self: end;
+  font-size: var(--fs-meta);
+}
+.practice-focus-picker__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 6px 16px;
+  margin: 0;
+  font-size: var(--fs-meta);
+}
+.practice-focus-picker__summary div {
+  display: flex;
+  justify-content: space-between;
+}
+.practice-focus-picker__summary dt {
+  color: var(--muted);
+  margin: 0;
+}
+.practice-focus-picker__summary dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sprint 36: recruiting modal sub-components. Minimal styling — the
+   modal-extension wiring itself ships in Sprint 36+ UAT once the IPC
+   payload is extended. */
+.priorities-readout, .pitch-reason-card, .scout-tier-indicator, .nil-offer-slider {
+  margin: 12px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border, #2a2f37);
+  border-radius: 6px;
+}
+.priorities-readout__list { list-style: none; padding: 0; margin: 6px 0 0; }
+.priorities-readout__row {
+  display: grid;
+  grid-template-columns: 110px 1fr 24px;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-meta);
+  margin: 2px 0;
+}
+.priorities-readout__bar {
+  display: block;
+  height: 6px;
+  background: #1d232b;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.priorities-readout__bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent, #ff5722);
+  border-radius: 3px;
+}
+.priorities-readout__value { text-align: right; font-variant-numeric: tabular-nums; }
+.pitch-reason-card--inactive { opacity: 0.6; }
+.pitch-reason-card__header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.pitch-reason-card__title { margin: 0; font-size: var(--fs-meta); }
+.pitch-reason-card__status { font-size: 10px; font-weight: 700; }
+.pitch-reason-card__points { margin-left: auto; font-variant-numeric: tabular-nums; }
+.pitch-reason-card__flavor { margin: 0; font-size: var(--fs-meta); color: var(--muted); }
+.scout-tier-indicator__dots {
+  display: flex;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 6px 0;
+}
+.scout-tier-indicator__dot {
+  flex: 1;
+  text-align: center;
+  padding: 4px 8px;
+  border: 1px solid var(--border, #2a2f37);
+  border-radius: 4px;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+.scout-tier-indicator__dot--filled {
+  background: var(--accent, #ff5722);
+  color: var(--bg, #0d1117);
+  border-color: var(--accent, #ff5722);
+}
+.nil-offer-slider__row {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 8px;
+  align-items: center;
+}
+.nil-offer-slider__input { width: 100%; }
+.nil-offer-slider__preview {
+  margin: 4px 0;
+  font-size: var(--fs-meta);
+}
+.nil-offer-slider__budget {
+  margin: 4px 0;
+  font-size: var(--fs-meta);
+  color: var(--muted);
 }
 .player-profile-modal__rating-label {
   color: var(--muted);
@@ -2790,4 +2982,609 @@ button:hover {
   font-style: italic;
   padding: 12px;
   text-align: center;
+}
+
+/* Sprint 29: Live Play Hub — 4-pane CSS Grid layout. */
+.live-play-hub {
+  padding: 16px;
+}
+.live-play-hub__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.live-play-hub__error {
+  color: #ff6b6b;
+}
+.live-play-hub__banner {
+  background: #1a2540;
+  border: 1px solid #3a5080;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+.live-play-hub__final {
+  color: var(--accent);
+  font-weight: bold;
+  margin-top: 12px;
+}
+.live-play-hub__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: minmax(240px, 1fr) minmax(240px, 1fr);
+  gap: 12px;
+  height: calc(100vh - 160px);
+  min-height: 500px;
+}
+.live-play-hub__pane {
+  background: #14181d;
+  border: 1px solid #2a3038;
+  border-radius: 6px;
+  padding: 12px;
+  overflow: auto;
+}
+.live-play-hub__pane h2 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: var(--fs-h2);
+}
+.live-play-hub__pbp {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-family: ui-monospace, monospace;
+  font-size: var(--fs-meta);
+}
+.live-play-hub__pbp-row {
+  padding: 2px 0;
+  border-bottom: 1px solid #1f242b;
+}
+.live-play-hub__sets,
+.live-play-hub__current-score {
+  font-size: var(--fs-h2);
+  margin-bottom: 8px;
+}
+.live-play-hub__stats {
+  width: 100%;
+  font-size: var(--fs-table);
+  border-collapse: collapse;
+}
+.live-play-hub__stats th,
+.live-play-hub__stats td {
+  padding: 4px 8px;
+  border-bottom: 1px solid #1f242b;
+  text-align: right;
+}
+.live-play-hub__stats th:first-child,
+.live-play-hub__stats td:first-child {
+  text-align: left;
+}
+.live-play-hub__sim-controls,
+.live-play-hub__quit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.live-play-hub__sim-controls button,
+.live-play-hub__quit-controls button {
+  padding: 6px 10px;
+  background: #1f262e;
+  border: 1px solid #3a4350;
+  color: var(--fg);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.live-play-hub__sim-controls button:hover:not(:disabled),
+.live-play-hub__quit-controls button:hover:not(:disabled) {
+  background: #2a323c;
+}
+.live-play-hub__sim-controls button:disabled,
+.live-play-hub__quit-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.live-play-hub__hint {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.match-hub__live-launch {
+  margin: 12px 0;
+}
+.match-hub__live-launch button {
+  background: var(--accent);
+  color: var(--accent-fg);
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* Sprint 30: skill-talk modal + sub picker + coaching action sections. */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal-card {
+  background: #14181d;
+  border: 1px solid #2a3038;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 720px;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+.modal-card h2 {
+  margin-top: 0;
+}
+.skill-talk__grid {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+.skill-talk__card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  background: #1f262e;
+  border: 1px solid #3a4350;
+  color: var(--fg);
+  padding: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+}
+.skill-talk__card:hover {
+  background: #2a323c;
+}
+.skill-talk__card span {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+  margin-top: 4px;
+}
+.skill-talk__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.sub-picker {
+  min-width: 600px;
+}
+.sub-picker__cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 12px 0;
+}
+.sub-picker__cols ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+}
+.sub-picker__row {
+  width: 100%;
+  text-align: left;
+  background: #1f262e;
+  border: 1px solid #3a4350;
+  color: var(--fg);
+  padding: 6px 10px;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.sub-picker__row:hover:not(:disabled) {
+  background: #2a323c;
+}
+.sub-picker__row:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.sub-picker__row--selected {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.sub-picker__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.live-play-hub__action-section {
+  margin-top: 12px;
+}
+.live-play-hub__action-section h3 {
+  margin: 8px 0 4px;
+  font-size: var(--fs-table);
+}
+.live-play-hub__boost-banner {
+  background: #1a3528;
+  border: 1px solid #2d5a45;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: var(--fs-meta);
+  margin: 4px 0;
+}
+
+/* Sprint 31: rotation editor + visual tracker */
+.rotation-editor {
+  min-width: 640px;
+}
+.rotation-editor__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 12px;
+  background: #0f1419;
+  border-radius: 4px;
+}
+.rotation-editor__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-meta);
+}
+.rotation-editor__cell span {
+  color: var(--muted);
+  font-weight: bold;
+}
+.rotation-editor__cell select {
+  background: #14181d;
+  border: 1px solid #3a4350;
+  color: var(--fg);
+  padding: 4px 6px;
+  border-radius: 3px;
+}
+.rotation-editor__row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 8px 0;
+}
+.rotation-editor__errors {
+  background: #3a1f1f;
+  border: 1px solid #7a3a3a;
+  color: #ffb6b6;
+  padding: 8px 12px;
+  border-radius: 4px;
+  list-style: disc inside;
+  margin: 8px 0;
+}
+.rotation-editor__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+/* Visual tracker — embedded in scoreboard pane */
+.rotation-tracker {
+  margin-top: 12px;
+  padding: 8px;
+  background: #0f1419;
+  border-radius: 4px;
+}
+.rotation-tracker__label {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.rotation-tracker__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rotation-tracker__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+}
+.rotation-tracker__cell {
+  background: #1a2027;
+  border: 1px solid #2a3038;
+  padding: 6px 8px;
+  border-radius: 3px;
+  font-size: var(--fs-meta);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.rotation-tracker__cell--front {
+  background: #1a2540;
+  border-color: #3a5080;
+}
+.rotation-tracker__pos {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: bold;
+}
+.rotation-tracker__name {
+  color: var(--fg);
+}
+.rotation-tracker__libero {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+/* Retro fix #7: highlight setter + opposite-of-setter cells in rotation editor */
+.rotation-editor__cell--setter {
+  border-left: 3px solid var(--accent);
+  padding-left: 6px;
+}
+.rotation-editor__cell--opposite {
+  border-left: 3px solid #5b8be4;
+  padding-left: 6px;
+}
+.rotation-editor__role {
+  font-style: normal;
+  font-size: 9px;
+  color: var(--accent);
+  margin-left: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.rotation-editor__cell--opposite .rotation-editor__role {
+  color: #5b8be4;
+}
+
+/* Retro fix #9: KeyRallyBanner */
+.key-rally-banner {
+  background: linear-gradient(90deg, #2a1a40 0%, #1a2540 100%);
+  border: 2px solid var(--accent);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  animation: key-rally-pulse 1.5s ease-in-out infinite;
+}
+@keyframes key-rally-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 44, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(255, 107, 44, 0.0); }
+}
+.key-rally-banner__copy strong {
+  color: var(--accent);
+  font-size: var(--fs-h2);
+  margin-right: 6px;
+}
+.key-rally-banner__actions {
+  display: flex;
+  gap: 8px;
+}
+.key-rally-banner__actions button {
+  padding: 6px 12px;
+  background: #1f262e;
+  border: 1px solid #3a4350;
+  color: var(--fg);
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.key-rally-banner__actions button:first-child {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
+/* Retro fix #1: QuitMatchDialog */
+.quit-match {
+  min-width: 480px;
+}
+.quit-match__options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+.quit-match__options button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  background: #1f262e;
+  border: 1px solid #3a4350;
+  color: var(--fg);
+  padding: 12px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+}
+.quit-match__options button:hover, .quit-match__options button:focus {
+  background: #2a323c;
+  border-color: var(--accent);
+}
+.quit-match__options button strong {
+  font-size: var(--fs-base);
+  margin-bottom: 2px;
+}
+.quit-match__options button span {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+}
+
+/* Retro fix #2: ResumeLiveBanner */
+.match-hub__resume-banner {
+  background: #2a1a40;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+.match-hub__resume-banner h2 {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: var(--fs-base);
+}
+.match-hub__resume-banner ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.match-hub__resume-banner li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+.match-hub__resume-banner button {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* Staff view: over-budget warning color */
+.staff-view__over-budget {
+  color: #ff6b6b;
+}
+
+/* Redshirt table filters + sort buttons */
+.offseason-panel__filters {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin: 8px 0 12px;
+  flex-wrap: wrap;
+  font-size: var(--fs-meta);
+}
+.offseason-panel__filters select {
+  margin-left: 4px;
+  background: #14181d;
+  border: 1px solid #3a4350;
+  color: var(--fg);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.offseason-panel__filters input[type="checkbox"] {
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.offseason-panel__count {
+  color: var(--muted);
+  margin-left: auto;
+}
+.offseason-panel__sort-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  font-weight: inherit;
+}
+.offseason-panel__sort-btn:hover {
+  color: var(--accent);
+}
+
+/* RosterView Program info panel */
+.program-info {
+  background: #14181d;
+  border: 1px solid #2a3038;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin: 12px 0;
+}
+.program-info__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.program-info__stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.program-info__label {
+  color: var(--muted);
+  font-size: var(--fs-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.program-info__value {
+  font-size: var(--fs-h1);
+  color: var(--accent);
+}
+.program-info__tier {
+  color: var(--muted);
+  font-size: var(--fs-table);
+}
+.program-info__toggle {
+  background: none;
+  border: 1px solid #3a4350;
+  color: var(--fg);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: var(--fs-meta);
+}
+.program-info__toggle:hover {
+  background: #1f262e;
+}
+.program-info__body {
+  margin-top: 12px;
+  border-top: 1px solid #2a3038;
+  padding-top: 12px;
+  font-size: var(--fs-table);
+  line-height: 1.5;
+}
+.program-info__body h3 {
+  margin: 0 0 8px;
+}
+.program-info__body h4 {
+  margin: 14px 0 4px;
+  color: var(--accent);
+  font-size: var(--fs-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.program-info__body ul {
+  margin: 4px 0 8px 20px;
+}
+.program-info__body code {
+  background: #1f262e;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 0.9em;
+}
+
+/* Redshirt confirmation pending list */
+.offseason-panel__pending-list {
+  background: #1a2027;
+  border-radius: 4px;
+  padding: 8px 24px;
+  margin: 8px 0;
+  list-style: disc;
+}
+.offseason-panel__pending-list li {
+  padding: 2px 0;
+  font-size: var(--fs-meta);
 }
