@@ -7,6 +7,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { sim } from '@vcd/shared';
 import { useLivePlayStore } from '../store/useLivePlayStore';
 import { useNavStore } from '../store/useNavStore';
+import { useSaveSlotsStore } from '../store/useSaveSlotsStore';
+import { useUserTeamStore } from '../store/useUserTeamStore';
+import { useScheduleStore } from '../store/useScheduleStore';
 import { SkillTalkModal } from '../components/SkillTalkModal';
 import { SubPicker } from '../components/SubPicker';
 import { RotationEditorModal } from '../components/RotationEditorModal';
@@ -138,13 +141,7 @@ export function LivePlayHub() {
   };
 
   if (phase === 'idle') {
-    return (
-      <section className="live-play-hub" aria-labelledby="live-play-heading">
-        <h1 id="live-play-heading">Live Play</h1>
-        <p>No live match active. Open the Match Hub and click Play (Live) to start.</p>
-        <button type="button" onClick={() => setScreen('match-hub')}>Go to Match Hub</button>
-      </section>
-    );
+    return <LivePlayIdleScreen />;
   }
 
   if (phase === 'starting') {
@@ -548,4 +545,124 @@ function computeLiveBox(state: sim.LiveMatchState, side: 'home' | 'away'): sim.P
       : 0;
   }
   return rows;
+}
+
+
+// Sprint 37 (post-launch UAT): idle-screen routing fix. The user's
+// previous flow was "Hub → Match Hub → pick teams → click Play Live".
+// That dumped them on the legacy MatchHub UI and they never saw the
+// Sprint 29-31 live-play work. This screen now shows the user team's
+// upcoming scheduled matches with a Play Live button per row, plus a
+// secondary link to Match Hub for replays of past games.
+function LivePlayIdleScreen() {
+  const setScreen = useNavStore((s) => s.setScreen);
+  const startNewMatch = useLivePlayStore((s) => s.startNewMatch);
+  const livePhase = useLivePlayStore((s) => s.phase);
+  const slotId = useSaveSlotsStore((s) => s.openedSlotId);
+  const userTeamId = useUserTeamStore((s) => s.userTeamId);
+  const teams = useScheduleStore((s) => s.teams);
+  const rows = useScheduleStore((s) => s.rows);
+  const selectedTeamId = useScheduleStore((s) => s.selectedTeamId);
+  const selectTeam = useScheduleStore((s) => s.selectTeam);
+  const loadTeams = useScheduleStore((s) => s.loadTeams);
+
+  useEffect(() => {
+    if (slotId && teams.length === 0) void loadTeams(slotId);
+  }, [slotId, teams.length, loadTeams]);
+
+  useEffect(() => {
+    if (slotId && userTeamId && selectedTeamId !== userTeamId) {
+      void selectTeam(slotId, userTeamId);
+    }
+  }, [slotId, userTeamId, selectedTeamId, selectTeam]);
+
+  const userTeam = useMemo(
+    () => (userTeamId ? teams.find((t) => t.id === userTeamId) ?? null : null),
+    [userTeamId, teams],
+  );
+
+  const upcoming = useMemo(() => {
+    return rows
+      .filter((r) => r.winnerId === null && !r.isTournament)
+      .slice(0, 5);
+  }, [rows]);
+
+  const onPlayLive = async (matchRow: typeof rows[number]) => {
+    if (!slotId || !userTeamId) return;
+    const opponent = teams.find((t) => t.id === matchRow.opponentId);
+    const myName = userTeam?.schoolName ?? 'My Team';
+    const oppName = opponent?.schoolName ?? matchRow.opponentSchool;
+    const homeId = matchRow.isHome ? userTeamId : matchRow.opponentId;
+    const awayId = matchRow.isHome ? matchRow.opponentId : userTeamId;
+    const homeName = matchRow.isHome ? myName : oppName;
+    const awayName = matchRow.isHome ? oppName : myName;
+    await startNewMatch(slotId, homeId, awayId, homeName, awayName);
+  };
+
+  return (
+    <section className="live-play-hub" aria-labelledby="live-play-heading">
+      <h1 id="live-play-heading">Live Play</h1>
+      {!slotId && <p>Open a save first.</p>}
+      {slotId && !userTeamId && (
+        <p>Pick your team from the Hub before starting a live match.</p>
+      )}
+      {slotId && userTeamId && upcoming.length === 0 && (
+        <p>
+          No upcoming scheduled matches. The schedule generates at the
+          start of the regular season — finish preseason events first.
+        </p>
+      )}
+      {slotId && userTeamId && upcoming.length > 0 && (
+        <>
+          <p className="live-play-hub__sub">
+            Pick a scheduled match to play live, rally by rally — full
+            coach controls (rotations, timeouts with skill talks, subs,
+            momentum swings). NCAA-accurate: 2 timeouts per set per team.
+          </p>
+          <ul className="live-play-hub__upcoming">
+            {upcoming.map((m) => (
+              <li
+                key={m.matchId}
+                className="live-play-hub__upcoming-row"
+                data-testid={`live-upcoming-${m.matchId}`}
+              >
+                <span className="live-play-hub__upcoming-week">
+                  Wk {m.weekIndex + 1} · {m.isoDate}
+                </span>
+                <span className="live-play-hub__upcoming-opp">
+                  {m.isHome ? 'vs' : '@'}{' '}
+                  <strong>{m.opponentAbbr}</strong> {m.opponentSchool}
+                  {m.opponentOverall !== null && (
+                    <span className="live-play-hub__upcoming-ovr">
+                      {' '}
+                      · OVR {m.opponentOverall}
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  className="ui-btn ui-btn--primary"
+                  disabled={livePhase === 'starting'}
+                  onClick={() => void onPlayLive(m)}
+                  data-testid={`live-play-${m.matchId}`}
+                >
+                  {livePhase === 'starting' ? 'Starting…' : 'Play Live'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p className="live-play-hub__alt">
+        Looking for a finished match?{' '}
+        <button
+          type="button"
+          className="ui-btn ui-btn--link"
+          onClick={() => setScreen('match-hub')}
+        >
+          Go to Match Hub for replays
+        </button>
+      </p>
+    </section>
+  );
 }
