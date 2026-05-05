@@ -139,6 +139,24 @@ export function MatchHub() {
             setHomeTeam(home);
             setAwayTeam(away);
           }}
+          onPlayLive={async (opp, isUserHome) => {
+            // Sprint 37 (post-launch UAT): "Play" on an unplayed match
+            // routes to LivePlayHub (the Sprint 29-31 live UI). The old
+            // instant-simulate path moved to a separate "Quick Sim"
+            // button for users who don't want rally-by-rally play.
+            if (!openedSlotId) return;
+            const homeId = isUserHome ? userTeamId : opp.opponentId;
+            const awayId = isUserHome ? opp.opponentId : userTeamId;
+            const userTeam = teams.find((t) => t.id === userTeamId);
+            const myName = userTeam?.schoolName ?? 'My Team';
+            const oppName = opp.opponentSchool;
+            const homeName = isUserHome ? myName : oppName;
+            const awayName = isUserHome ? oppName : myName;
+            await useLivePlayStore
+              .getState()
+              .startNewMatch(openedSlotId, homeId, awayId, homeName, awayName);
+            useNavStore.getState().setScreen('live-play');
+          }}
           onReplay={(matchId) => {
             if (!openedSlotId) return;
             void loadMatchForReplay(openedSlotId, matchId);
@@ -347,6 +365,10 @@ function UserTeamMatchList(props: {
   userTeamId: string;
   teams: Array<{ id: string; schoolName: string; abbr: string }>;
   onSimulate: (opponentId: string, isUserHome: boolean) => void;
+  onPlayLive: (
+    row: { opponentId: string; opponentSchool: string; matchId: string },
+    isUserHome: boolean,
+  ) => Promise<void> | void;
   onReplay: (matchId: string) => void;
   phase: string;
   openedSlotId: string;
@@ -386,20 +408,42 @@ function UserTeamMatchList(props: {
                     {r.isTournament ? 'TRN' : r.isConference ? 'conf' : 'nc'}
                   </span>
                 </span>
-                <button
-                  type="button"
-                  data-testid={`play-match-${r.matchId}`}
-                  disabled={isLoading}
-                  onClick={() => {
-                    props.onSimulate(r.opponentId, r.isHome);
-                    // Trigger sim after a tick so the home/away set on the store apply.
-                    queueMicrotask(() => {
-                      void props.simulateAndLoad(props.openedSlotId);
-                    });
-                  }}
-                >
-                  {isLoading ? 'Loading…' : 'Play'}
-                </button>
+                <span className="match-hub__list-actions">
+                  <button
+                    type="button"
+                    className="ui-btn ui-btn--primary"
+                    data-testid={`play-match-${r.matchId}`}
+                    disabled={isLoading}
+                    onClick={() =>
+                      void props.onPlayLive(
+                        {
+                          opponentId: r.opponentId,
+                          opponentSchool: r.opponentSchool,
+                          matchId: r.matchId,
+                        },
+                        r.isHome,
+                      )
+                    }
+                    title="Play this match live, rally-by-rally, with full coach controls"
+                  >
+                    {isLoading ? 'Loading…' : 'Play Live'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ui-btn"
+                    data-testid={`sim-match-${r.matchId}`}
+                    disabled={isLoading}
+                    onClick={() => {
+                      props.onSimulate(r.opponentId, r.isHome);
+                      queueMicrotask(() => {
+                        void props.simulateAndLoad(props.openedSlotId);
+                      });
+                    }}
+                    title="Quick-simulate the match and watch the replay"
+                  >
+                    Quick Sim
+                  </button>
+                </span>
               </li>
             ))}
           </ul>
