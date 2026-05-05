@@ -8,14 +8,21 @@
      vs --accent. Used by buttons / badges that have orange backgrounds. */
   --accent-fg: #1a0a00;
   /* Sprint 21: font-size tokens. Body class .fs-sm / .fs-md / .fs-lg
-     overrides --fs-scale to multiply all sizes. */
+     overrides --fs-scale to multiply all sizes.
+     Sprint 37 (post-launch UAT): the dependent vars (--fs-base, --fs-h1,
+     etc.) live on `body`, not `:root`, so they recompute against body's
+     --fs-scale. var() resolves at the declaration scope; declaring them
+     on :root meant they always picked up :root's --fs-scale=1 even when
+     body.fs-lg overrode --fs-scale on body. */
   --fs-scale: 1;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+body {
   --fs-base: calc(14px * var(--fs-scale));
   --fs-h1: calc(28px * var(--fs-scale));
   --fs-h2: calc(22px * var(--fs-scale));
   --fs-table: calc(13px * var(--fs-scale));
   --fs-meta: calc(12px * var(--fs-scale));
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: var(--fs-base);
 }
 body.fs-sm { --fs-scale: 0.85; }

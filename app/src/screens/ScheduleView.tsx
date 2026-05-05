@@ -51,6 +51,36 @@ export function ScheduleView() {
             ? `${stats.totalMatches} matches · ${stats.confMatches} conf · ${stats.nonConfMatches} non-conf · ${stats.tournamentMatches} tournament`
             : 'Pick a team to view their schedule.'}
         </p>
+        {selectedTeamId && rows.length > 0 && (
+          <p className="schedule-view__record" data-testid="schedule-record">
+            {(() => {
+              // Sprint 37 (post-launch UAT): show the regular-season W-L
+              // tally explicitly, plus tournament W-L separately. Pre-fix,
+              // the user mentally counted the rows themselves and got a
+              // different number than Standings (which only counts regular
+              // season). Showing both here lines the two screens up.
+              let regW = 0,
+                regL = 0,
+                tournW = 0,
+                tournL = 0;
+              for (const r of rows) {
+                if (r.winnerId === null) continue;
+                const won = r.winnerId === selectedTeamId;
+                if (r.isTournament) {
+                  if (won) tournW += 1;
+                  else tournL += 1;
+                } else {
+                  if (won) regW += 1;
+                  else regL += 1;
+                }
+              }
+              const reg = `Regular: ${regW}–${regL}`;
+              const tourn =
+                tournW + tournL > 0 ? ` · Tournament: ${tournW}–${tournL}` : '';
+              return reg + tourn;
+            })()}
+          </p>
+        )}
       </header>
 
       <div className="schedule-view__controls" role="group" aria-label="Schedule controls">
@@ -94,6 +124,7 @@ export function ScheduleView() {
               <th scope="col">Date</th>
               <th scope="col" className="t-num">H/A</th>
               <th scope="col">Opponent</th>
+              <th scope="col" className="t-num">Opp OVR</th>
               <th scope="col" className="t-num">Kind</th>
               <th scope="col">Result</th>
             </tr>
@@ -137,6 +168,7 @@ export function ScheduleView() {
                     <strong>{r.opponentAbbr}</strong>{' '}
                     <span className="schedule-view__opp-school">{r.opponentSchool}</span>
                   </td>
+                  <td className="t-num">{r.opponentOverall ?? '—'}</td>
                   <td className="t-num">{r.isTournament ? 'TRN' : r.isConference ? 'conf' : 'nc'}</td>
                   <td>
                     {isPlayed && isUserTeamSelected ? (

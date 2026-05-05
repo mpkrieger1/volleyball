@@ -55,6 +55,9 @@ export const TeamScheduleRow = z.object({
   // regular-season matches. Lets the UI render "CT R1" instead of just a
   // week number for tournament rows.
   tournamentRound: z.string().nullable(),
+  // Sprint 37 (post-launch UAT): opponent team overall (avg of player
+  // overalls). Distinct from prestige; null if opponent has no players.
+  opponentOverall: z.number().int().nullable(),
 });
 export type TeamScheduleRow = z.infer<typeof TeamScheduleRow>;
 

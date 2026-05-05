@@ -134,6 +134,15 @@ export function RosterView() {
     );
   }
 
+  // Sprint 37 (post-launch UAT): team overall = mean of player overalls.
+  // Distinct from prestige (program reputation, not the current roster).
+  const teamOverall =
+    players.length === 0
+      ? null
+      : Math.round(
+          players.reduce((sum, p) => sum + p.overall, 0) / players.length,
+        );
+
   return (
     <section aria-labelledby="roster-heading" className="roster-view">
       <header className="match-hub__header">
@@ -141,7 +150,16 @@ export function RosterView() {
           {userTeam ? `${userTeam.schoolName} Roster` : 'Roster'}
         </h1>
         <p className="match-hub__sub">
-          {players.length} / {rosterShared.MAX_ROSTER_SIZE} players. Click a row for the full profile.
+          {players.length} / {rosterShared.MAX_ROSTER_SIZE} players
+          {teamOverall !== null && (
+            <>
+              {' · '}
+              <strong data-testid="roster-team-overall">
+                Team OVR {teamOverall}
+              </strong>
+            </>
+          )}
+          . Click a row for the full profile.
         </p>
       </header>
 

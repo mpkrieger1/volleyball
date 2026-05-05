@@ -215,16 +215,34 @@ export async function createAndStartLiveMatch(input: CreateAndStartInput): Promi
   });
   let matchId: string;
   try {
-    const match = await client.match.create({
-      data: {
-        homeTeamId: input.homeTeamId,
-        awayTeamId: input.awayTeamId,
-        date: new Date(),
-        week: 0,
-        isConference: false,
+    // Sprint 37 (post-launch UAT): if a scheduled match between these
+    // two teams exists and hasn't been played yet, reuse it. Prevents
+    // duplicate match rows and keeps the schedule in sync — when the
+    // match completes via simulateRest, the scheduled row is updated
+    // with the winner.
+    const scheduled = await client.match.findFirst({
+      where: {
+        OR: [
+          { homeTeamId: input.homeTeamId, awayTeamId: input.awayTeamId },
+          { homeTeamId: input.awayTeamId, awayTeamId: input.homeTeamId },
+        ],
+        winnerId: null,
         isTournament: false,
       },
+      orderBy: { date: 'asc' },
     });
+    const match =
+      scheduled ??
+      (await client.match.create({
+        data: {
+          homeTeamId: input.homeTeamId,
+          awayTeamId: input.awayTeamId,
+          date: new Date(),
+          week: 0,
+          isConference: false,
+          isTournament: false,
+        },
+      }));
     matchId = match.id;
   } finally {
     await client.$disconnect();

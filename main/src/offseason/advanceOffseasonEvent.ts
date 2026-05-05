@@ -131,7 +131,7 @@ export async function advanceOffseasonEvent(
         summary = await gameplan(handlerClient, seasonYear);
         break;
       case 'FINALIZE':
-        summary = await finalize(handlerClient, seasonYear);
+        summary = await finalize(handlerClient, seasonYear, input.dbPath);
         break;
     }
   } finally {

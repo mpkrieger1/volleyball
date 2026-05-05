@@ -62,6 +62,50 @@ export function registerScheduleHandlers(deps: SaveSlotServiceDeps): void {
             sets: { select: { home: true, away: true } },
           },
         });
+        // Sprint 37 (post-launch UAT): pre-compute team overall (avg of
+        // player overalls) for every team that appears in this schedule.
+        // One findMany per team is too chatty; pull all relevant teams'
+        // players in a single query and group in memory.
+        const teamIds = new Set<string>();
+        for (const m of rows) {
+          teamIds.add(m.homeTeamId);
+          teamIds.add(m.awayTeamId);
+        }
+        const allPlayers = await client.player.findMany({
+          where: { teamId: { in: Array.from(teamIds) } },
+          select: {
+            teamId: true,
+            ratingAttack: true,
+            ratingBlock: true,
+            ratingServe: true,
+            ratingPass: true,
+            ratingSet: true,
+            ratingDig: true,
+            ratingAthleticism: true,
+            ratingIq: true,
+            ratingStamina: true,
+          },
+        });
+        const overallByTeam = new Map<string, number>();
+        const sumByTeam = new Map<string, { sum: number; n: number }>();
+        for (const p of allPlayers) {
+          const ovr =
+            (p.ratingAttack +
+              p.ratingBlock +
+              p.ratingServe +
+              p.ratingPass +
+              p.ratingSet +
+              p.ratingDig +
+              p.ratingAthleticism +
+              p.ratingIq +
+              p.ratingStamina) /
+            9;
+          const cur = sumByTeam.get(p.teamId) ?? { sum: 0, n: 0 };
+          sumByTeam.set(p.teamId, { sum: cur.sum + ovr, n: cur.n + 1 });
+        }
+        for (const [tid, { sum, n }] of sumByTeam) {
+          overallByTeam.set(tid, Math.round(sum / n));
+        }
         return {
           ok: true as const,
           rows: rows.map((m) => {
@@ -95,6 +139,7 @@ export function registerScheduleHandlers(deps: SaveSlotServiceDeps): void {
               homeSetsWon,
               awaySetsWon,
               tournamentRound: m.tournamentRound,
+              opponentOverall: overallByTeam.get(opp.id) ?? null,
             };
           }),
         };

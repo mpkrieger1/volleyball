@@ -45,7 +45,7 @@ const ACTION_CARDS: ActionCard[] = [
   { id: 'bracket', label: 'Bracket', blurb: 'NCAA tournament bracket.', visibleIn: 'postseason' },
   { id: 'awards', label: 'Awards', blurb: 'AVCA All-Americans and season honors.', visibleIn: 'offseason' },
   { id: 'analytics', label: 'Analytics', blurb: 'Match-by-match deep-dive charts.', visibleIn: 'always' },
-  { id: 'match-hub', label: 'Match Hub', blurb: 'Replay or simulate a specific match.', visibleIn: 'always' },
+  { id: 'match-hub', label: 'Play Match', blurb: 'Start a live match (rally-by-rally) or replay a finished one.', visibleIn: 'always' },
 ];
 
 function phaseGroup(phase: string): 'preseason' | 'regular' | 'postseason' | 'offseason' {

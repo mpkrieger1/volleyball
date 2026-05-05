@@ -52,14 +52,23 @@ export function DepthChartView() {
     if (openedSlotId && userTeamId) void load(openedSlotId, userTeamId);
   }, [openedSlotId, userTeamId, load]);
 
+  // Sprint 37 (post-launch UAT): redshirting players (redshirtUsed=true)
+  // are sitting out the season — they shouldn't appear in the depth chart.
+  // The chart is the active-roster view; redshirted players are still on
+  // the team but not eligible to play.
+  const eligiblePlayers = useMemo(
+    () => players.filter((p) => !p.redshirtUsed),
+    [players],
+  );
+
   // Initialize orderByPos when roster arrives and we have no order yet.
   useEffect(() => {
-    if (players.length === 0) return;
+    if (eligiblePlayers.length === 0) return;
     setOrderByPos((prev) => {
       // Preserve existing order entries; fill in missing positions.
       const next: Record<string, string[]> = { ...prev };
       const byPos: Record<string, rosterIpc.RosterPlayer[]> = {};
-      for (const p of players) {
+      for (const p of eligiblePlayers) {
         const key = p.isLibero ? 'L' : p.position;
         (byPos[key] ??= []).push(p);
       }
@@ -78,9 +87,12 @@ export function DepthChartView() {
       }
       return next;
     });
-  }, [players]);
+  }, [eligiblePlayers]);
 
-  const playersById = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
+  const playersById = useMemo(
+    () => new Map(eligiblePlayers.map((p) => [p.id, p])),
+    [eligiblePlayers],
+  );
 
   const userTeam = userTeamId ? teams.find((t) => t.id === userTeamId) : null;
 
@@ -161,19 +173,20 @@ export function DepthChartView() {
       </header>
 
       {status === 'loading' && <p>Loading roster…</p>}
-      {status === 'ready' && players.length === 0 && (
+      {status === 'ready' && eligiblePlayers.length === 0 && (
         <p className="save-slots__empty">
-          No players on this roster yet. Create a fresh save from the Save
-          Slots screen if this looks wrong.
+          {players.length === 0
+            ? 'No players on this roster yet. Create a fresh save from the Save Slots screen if this looks wrong.'
+            : 'Every player on the roster is redshirting this season — the depth chart is empty. Toggle redshirt off in the Roster view if a player should be playing.'}
         </p>
       )}
 
-      {players.length > 0 && (
+      {eligiblePlayers.length > 0 && (
         <div className="depth-chart-view__grid">
           {POSITION_GROUPS.map((group) => {
             const ids = orderByPos[group.key] ?? [];
             const idSet = new Set(ids);
-            const addable = players
+            const addable = eligiblePlayers
               .filter((p) => !idSet.has(p.id))
               .sort((a, b) => b.overall - a.overall);
             return (

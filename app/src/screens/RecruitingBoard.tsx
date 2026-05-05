@@ -94,6 +94,21 @@ function RecruitingBoardInner({ teamId }: { teamId: string }) {
     void load(openedSlotId, teamId);
   }, [openedSlotId, teamId, load]);
 
+  // Sprint 37 (post-launch UAT): auto-open the recruiting cycle if it
+  // isn't open yet. The user shouldn't have to press a button — the
+  // cycle should be live the moment they visit the screen. Guarded by
+  // status==='ready' so the open fires once after the initial load
+  // resolves (instead of racing with the load call).
+  useEffect(() => {
+    if (
+      status === 'ready' &&
+      phase !== 'RECRUITING' &&
+      recruits.length === 0
+    ) {
+      void openCycle(openedSlotId, 2026);
+    }
+  }, [status, phase, recruits.length, openCycle, openedSlotId]);
+
   // Filter pipeline: filter → tab → useTableState (for sort).
   const visible = useMemo(() => {
     let rows = recruits.filter((r) => {
@@ -162,15 +177,8 @@ function RecruitingBoardInner({ teamId }: { teamId: string }) {
 
       <div className="recruiting-board__toolbar" role="group" aria-label="Recruiting toolbar">
         <div className="recruiting-board__toolbar-actions">
-          {phase !== 'RECRUITING' && (
-            <button
-              type="button"
-              className="ui-btn ui-btn--primary"
-              disabled={status === 'advancing'}
-              onClick={() => void openCycle(openedSlotId, 2026)}
-            >
-              Open Recruiting Cycle
-            </button>
+          {phase !== 'RECRUITING' && status === 'loading' && (
+            <span className="recruiting-board__loading">Opening cycle…</span>
           )}
           {phase === 'RECRUITING' && (
             <>
