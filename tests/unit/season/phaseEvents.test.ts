@@ -20,9 +20,12 @@ describe('OFFSEASON_EVENTS / PRESEASON_EVENTS arrays', () => {
     ]);
   });
 
-  it('PRESEASON_EVENTS has exactly 5 events in spec order', () => {
+  it('PRESEASON_EVENTS has exactly 4 events in spec order', () => {
+    // Sprint 37 (post-launch UAT): POSITION_CHANGES dropped — v1.2 was a
+    // no-op stub with no UI and the screen rendered an Advance button
+    // with nothing for the user to do. v1.3 will reintroduce with a real
+    // position-change picker.
     expect(season.PRESEASON_EVENTS).toEqual([
-      'POSITION_CHANGES',
       'TRAINING_FOCUS',
       'TRAINING_RESULTS',
       'GAMEPLAN',
@@ -39,13 +42,13 @@ describe('getCurrentEvent', () => {
   });
 
   it('PRESEASON phase resolves by index', () => {
-    expect(season.getCurrentEvent({ phase: 'PRESEASON', phaseWeek: 0 })).toBe('POSITION_CHANGES');
-    expect(season.getCurrentEvent({ phase: 'PRESEASON', phaseWeek: 4 })).toBe('FINALIZE');
+    expect(season.getCurrentEvent({ phase: 'PRESEASON', phaseWeek: 0 })).toBe('TRAINING_FOCUS');
+    expect(season.getCurrentEvent({ phase: 'PRESEASON', phaseWeek: 3 })).toBe('FINALIZE');
   });
 
   it('returns null when phaseWeek is past the last event (sentinel = "advance phase")', () => {
     expect(season.getCurrentEvent({ phase: 'OFFSEASON', phaseWeek: 11 })).toBeNull();
-    expect(season.getCurrentEvent({ phase: 'PRESEASON', phaseWeek: 5 })).toBeNull();
+    expect(season.getCurrentEvent({ phase: 'PRESEASON', phaseWeek: 4 })).toBeNull();
   });
 
   it('returns null for non-event phases (REGULAR, NCAA, ...)', () => {
@@ -63,7 +66,7 @@ describe('nextPhaseTransition', () => {
   });
 
   it('PRESEASON last event → REGULAR, phaseWeek=0', () => {
-    expect(season.nextPhaseTransition({ phase: 'PRESEASON', phaseWeek: 4 })).toEqual({
+    expect(season.nextPhaseTransition({ phase: 'PRESEASON', phaseWeek: 3 })).toEqual({
       phase: 'REGULAR',
       phaseWeek: 0,
     });
@@ -82,7 +85,7 @@ describe('nextPhaseTransition', () => {
 });
 
 describe('sequence integrity', () => {
-  it('walking from (OFFSEASON, 0) yields all 11+5 events before transitioning to REGULAR', () => {
+  it('walking from (OFFSEASON, 0) yields all 11+4 events before transitioning to REGULAR', () => {
     const seen: string[] = [];
     let cursor: season.EventCursor = { phase: 'OFFSEASON', phaseWeek: 0 };
     // Cap at 25 to prevent runaway loops.

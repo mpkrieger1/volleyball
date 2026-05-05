@@ -23,8 +23,12 @@ export type OffseasonEvent =
   | 'BOOSTER_UPDATES'
   | 'ADVANCE_YEAR';
 
+// Sprint 37 (post-launch UAT): POSITION_CHANGES removed from the PRESEASON
+// calendar. The v1.2 handler was a no-op stub with no UI and the screen
+// rendered an Advance button with nothing for the user to do. v1.3 will
+// add a real position-change UI (player picker + position validation) and
+// re-introduce the event then.
 export type PreseasonEvent =
-  | 'POSITION_CHANGES'
   | 'TRAINING_FOCUS'
   | 'TRAINING_RESULTS'
   | 'GAMEPLAN'
@@ -45,7 +49,6 @@ export const OFFSEASON_EVENTS: readonly OffseasonEvent[] = [
 ] as const;
 
 export const PRESEASON_EVENTS: readonly PreseasonEvent[] = [
-  'POSITION_CHANGES',
   'TRAINING_FOCUS',
   'TRAINING_RESULTS',
   'GAMEPLAN',

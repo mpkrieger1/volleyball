@@ -8,12 +8,20 @@
 // performAction. ESC closes; click-outside closes.
 
 import { useEffect, useRef, useState } from 'react';
-import type { recruitingIpc } from '@vcd/shared';
+import type { recruiting, recruitingIpc } from '@vcd/shared';
 import { InterestMeter } from './InterestMeter';
 import { PrioritiesReadout } from './PrioritiesReadout';
 import { PitchReasonsCard } from './PitchReasonsCard';
 import { ScoutTierIndicator } from './ScoutTierIndicator';
 import { NilOfferSlider } from './NilOfferSlider';
+
+const NEUTRAL_PRIORITIES: recruiting.RecruitPriorities = {
+  playingTime: 5,
+  proximityToHome: 5,
+  prestige: 5,
+  facilities: 5,
+  nilDeal: 0,
+};
 
 type Tab = 'battle' | 'scouting';
 
@@ -28,6 +36,8 @@ const ACTIONS: Array<{ key: recruitingIpc.RecruitingActionType; label: string; c
 type Props = {
   detail: recruitingIpc.RecruitDetailView | null;
   loading: boolean;
+  /** Sprint 37 (post-launch UAT): error message to surface in the modal body. */
+  errorMessage?: string | null;
   budgetRemaining: number;
   onAction: (action: recruitingIpc.RecruitingActionType) => void;
   onClose: () => void;
@@ -38,6 +48,7 @@ type Props = {
 export function RecruitDetailModal({
   detail,
   loading,
+  errorMessage,
   budgetRemaining,
   onAction,
   onClose,
@@ -79,6 +90,20 @@ export function RecruitDetailModal({
         tabIndex={-1}
       >
         {loading && <p data-testid="recruit-detail-loading">Loading…</p>}
+        {!loading && !detail && errorMessage && (
+          <div role="alert" data-testid="recruit-detail-error" className="recruit-detail-modal__error">
+            <h2>Couldn’t load recruit details</h2>
+            <p>{errorMessage}</p>
+            <button type="button" onClick={onClose} className="ui-btn">Close</button>
+          </div>
+        )}
+        {!loading && !detail && !errorMessage && (
+          <div role="alert" data-testid="recruit-detail-empty" className="recruit-detail-modal__error">
+            <h2>No recruit data</h2>
+            <p>The recruit returned no data. Try clicking again, or close and re-open.</p>
+            <button type="button" onClick={onClose} className="ui-btn">Close</button>
+          </div>
+        )}
         {!loading && detail && (
           <>
             <header className="recruit-detail-modal__header">
@@ -142,12 +167,12 @@ export function RecruitDetailModal({
             <div role="tabpanel" className="recruit-detail-modal__panel">
               {tab === 'battle' && (
                 <>
-                  <InterestMeter rows={detail.interestMeter} />
+                  <InterestMeter rows={detail.interestMeter ?? []} />
                   <PrioritiesReadout
-                    priorities={detail.priorities}
-                    wantsToLeaveHome={detail.wantsToLeaveHome}
+                    priorities={detail.priorities ?? NEUTRAL_PRIORITIES}
+                    wantsToLeaveHome={detail.wantsToLeaveHome ?? false}
                   />
-                  {detail.pitchReasons.length > 0 && (
+                  {(detail.pitchReasons?.length ?? 0) > 0 && (
                     <div
                       className="recruit-detail-modal__pitch-row"
                       data-testid="pitch-reasons-row"
@@ -157,13 +182,13 @@ export function RecruitDetailModal({
                       ))}
                     </div>
                   )}
-                  {onSetNilOffer && (
+                  {onSetNilOffer && (detail.nilBudgetCents ?? 0) > 0 && (
                     <NilOfferSlider
                       recruitStars={detail.stars}
-                      priorities={detail.priorities}
-                      currentOfferCents={detail.nilOfferCents}
-                      budgetCents={detail.nilBudgetCents}
-                      budgetUsedCents={detail.nilBudgetUsedCents}
+                      priorities={detail.priorities ?? NEUTRAL_PRIORITIES}
+                      currentOfferCents={detail.nilOfferCents ?? 0}
+                      budgetCents={detail.nilBudgetCents ?? 0}
+                      budgetUsedCents={detail.nilBudgetUsedCents ?? 0}
                       onConfirm={onSetNilOffer}
                     />
                   )}
@@ -175,7 +200,7 @@ export function RecruitDetailModal({
                     scoutLevel={detail.scoutLevel}
                     budgetRemaining={budgetRemaining}
                   />
-                  <ScoutReport rows={detail.scoutReport} scoutLevel={detail.scoutLevel} />
+                  <ScoutReport rows={detail.scoutReport ?? []} scoutLevel={detail.scoutLevel} />
                 </>
               )}
             </div>

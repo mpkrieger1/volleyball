@@ -18,7 +18,6 @@ import { recruitingWeek } from './events/recruitingWeek';
 import { signingDay } from './events/signingDay';
 import { boosterUpdates } from './events/boosterUpdates';
 import { advanceYear } from './events/advanceYear';
-import { positionChanges } from './events/positionChanges';
 import { trainingFocus } from './events/trainingFocus';
 import { trainingResults } from './events/trainingResults';
 import { gameplan } from './events/gameplan';
@@ -121,9 +120,6 @@ export async function advanceOffseasonEvent(
         break;
       case 'ADVANCE_YEAR':
         summary = await advanceYear(input.dbPath, seasonYear);
-        break;
-      case 'POSITION_CHANGES':
-        summary = await positionChanges(handlerClient, seasonYear);
         break;
       case 'TRAINING_FOCUS':
         summary = await trainingFocus(handlerClient, seasonYear, input.userTeamId ?? null);

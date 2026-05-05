@@ -87,6 +87,7 @@ function RecruitingBoardInner({ teamId }: { teamId: string }) {
     closeCycle,
     openDetail,
     closeDetail,
+    setNilOffer,
   } = useRecruitingStore();
 
   useEffect(() => {
@@ -364,12 +365,17 @@ function RecruitingBoardInner({ teamId }: { teamId: string }) {
         <RecruitDetailModal
           detail={detail}
           loading={detailStatus === 'loading'}
+          errorMessage={detailStatus === 'error' ? error : null}
           budgetRemaining={budgetRemaining}
           onAction={(action) => {
             if (!detail) return;
             void performAction(openedSlotId, teamId, detail.recruitId, action);
           }}
           onClose={closeDetail}
+          onSetNilOffer={(offerCents) => {
+            if (!detail) return;
+            void setNilOffer(openedSlotId, teamId, detail.recruitId, offerCents);
+          }}
         />
       )}
     </section>

@@ -302,8 +302,6 @@ function humanizeEvent(event: string): string {
       return 'Booster Update';
     case 'ADVANCE_YEAR':
       return 'Advance Year';
-    case 'POSITION_CHANGES':
-      return 'Position Changes';
     case 'GAMEPLAN':
       return 'Gameplan';
     case 'FINALIZE':
@@ -337,8 +335,6 @@ function eventBlurb(event: string): string {
       return 'Booster enthusiasm updates from this season’s record.';
     case 'ADVANCE_YEAR':
       return 'Roll the calendar forward; age the roster.';
-    case 'POSITION_CHANGES':
-      return 'Auto-adjust positions where the depth chart needs balance.';
     case 'GAMEPLAN':
       return 'Set the gameplan for the new season.';
     case 'FINALIZE':
