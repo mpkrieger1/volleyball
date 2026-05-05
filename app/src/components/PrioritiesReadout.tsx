@@ -6,9 +6,19 @@
 
 import type { recruiting } from '@vcd/shared';
 
+export type TeamPriorityLevels = {
+  playingTime: number;
+  proximityToHome: number;
+  prestige: number;
+  facilities: number;
+  nilDeal: number;
+};
+
 type Props = {
   priorities: recruiting.RecruitPriorities;
   wantsToLeaveHome: boolean;
+  /** Sprint 37 (post-launch UAT): user team's level (0..100) per axis. */
+  teamLevels?: TeamPriorityLevels;
 };
 
 const ROWS: Array<{ key: keyof recruiting.RecruitPriorities; label: string }> = [
@@ -19,7 +29,7 @@ const ROWS: Array<{ key: keyof recruiting.RecruitPriorities; label: string }> = 
   { key: 'nilDeal', label: 'NIL' },
 ];
 
-export function PrioritiesReadout({ priorities, wantsToLeaveHome }: Props) {
+export function PrioritiesReadout({ priorities, wantsToLeaveHome, teamLevels }: Props) {
   return (
     <section
       className="priorities-readout"
@@ -38,6 +48,7 @@ export function PrioritiesReadout({ priorities, wantsToLeaveHome }: Props) {
             isProximity && wantsToLeaveHome
               ? ' (wants to leave home)'
               : '';
+          const teamLevel = teamLevels?.[r.key];
           return (
             <li
               key={r.key}
@@ -55,6 +66,15 @@ export function PrioritiesReadout({ priorities, wantsToLeaveHome }: Props) {
                 />
               </span>
               <span className="priorities-readout__value">{value}</span>
+              {teamLevel !== undefined && (
+                <span
+                  className="priorities-readout__team"
+                  data-testid={`priority-team-${r.key}`}
+                  title={`Your team's level on ${r.label}`}
+                >
+                  · You: {teamLevel}/100
+                </span>
+              )}
             </li>
           );
         })}

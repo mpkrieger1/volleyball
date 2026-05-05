@@ -185,6 +185,18 @@ export const RecruitPrioritiesView = z.object({
 });
 export type RecruitPrioritiesView = z.infer<typeof RecruitPrioritiesView>;
 
+// Sprint 37 (post-launch UAT): user team's level on each priority axis
+// (0..100). Lets the modal show "you stack up here" alongside what the
+// recruit cares about.
+export const TeamPriorityLevelsView = z.object({
+  playingTime: z.number().int().min(0).max(100),
+  proximityToHome: z.number().int().min(0).max(100),
+  prestige: z.number().int().min(0).max(100),
+  facilities: z.number().int().min(0).max(100),
+  nilDeal: z.number().int().min(0).max(100),
+});
+export type TeamPriorityLevelsView = z.infer<typeof TeamPriorityLevelsView>;
+
 export const PitchReasonView = z.object({
   type: z.enum(['COACH_PEDIGREE', 'COACH_CONNECTION']),
   active: z.boolean(),
@@ -220,6 +232,8 @@ export const RecruitDetailView = z.object({
   // ── Sprint 37 additions ──
   /** Sprint 35: per-recruit priorities (0..10 each). */
   priorities: RecruitPrioritiesView,
+  /** Sprint 37: this team's level on each priority dimension (0..100). */
+  teamPriorityLevels: TeamPriorityLevelsView,
   /** Sprint 35: 15% of recruits flip proximity polarity. */
   wantsToLeaveHome: z.boolean(),
   /** Sprint 36: PEDIGREE + CONNECTION pitch reasons (active flags + points). */

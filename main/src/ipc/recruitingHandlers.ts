@@ -461,6 +461,9 @@ export function registerRecruitingHandlers(deps: SaveSlotServiceDeps): void {
           where: { id: req.teamId },
           select: {
             region: true,
+            prestige: true,
+            facilitiesLevel: true,
+            academicsLevel: true,
             nilBudgetCents: true,
             nilBudgetUsedCents: true,
           },
@@ -510,6 +513,29 @@ export function registerRecruitingHandlers(deps: SaveSlotServiceDeps): void {
           quality: recruiting.getRecruiterQuality(c.ratingRecruit),
         }));
 
+        // Sprint 37 (post-launch UAT): compute the team's level on each
+        // priority axis so the modal can show "you stack up here" next
+        // to "recruit cares this much". Uses the same `derivePriorityLevels`
+        // helper the interest math uses.
+        const teamPriorityLevels = team
+          ? recruiting.derivePriorityLevels(
+              {
+                id: recruit.id,
+                stars: recruit.stars as 1 | 2 | 3 | 4 | 5,
+                hometownRegion: recruit.hometownRegion ?? 'CENTRAL',
+                wantsToLeaveHome: recruit.wantsToLeaveHome,
+              },
+              {
+                teamId: req.teamId,
+                region: team.region,
+                prestigeLevel: team.prestige,
+                facilitiesLevel: team.facilitiesLevel,
+                academicsLevel: team.academicsLevel,
+                playingTimeLevel: 50,
+              },
+            )
+          : { playingTime: 0, proximityToHome: 0, prestige: 0, facilities: 0, nilDeal: 0 };
+
         return {
           ok: true as const,
           detail: {
@@ -530,6 +556,7 @@ export function registerRecruitingHandlers(deps: SaveSlotServiceDeps): void {
             actionsSpent: myInterest?.actionsSpent ?? 0,
             // Sprint 37 additions
             priorities,
+            teamPriorityLevels,
             wantsToLeaveHome: recruit.wantsToLeaveHome,
             pitchReasons: pitch.reasons,
             recruiterQualityByCoach,

@@ -105,8 +105,35 @@ export async function openRecruitingCycle(
         stars: true,
         hometownRegion: true,
         position: true,
+        prioritiesJson: true,
       },
     });
+
+    // Sprint 37 (post-launch UAT): backfill prioritiesJson +
+    // wantsToLeaveHome on the freshly-created recruits. The createMany
+    // above doesn't write these (the Prisma-generated cuid id isn't
+    // available pre-insert and `priorityFromId` is deterministic per id).
+    // Without this pass, every recruit's modal shows the IPC handler's
+    // 5/5/5/5/0 neutral fallback.
+    const needsPriorities = persistedRecruits.filter((r) => r.prioritiesJson === null);
+    if (needsPriorities.length > 0) {
+      const CHUNK = 200;
+      for (let off = 0; off < needsPriorities.length; off += CHUNK) {
+        const slice = needsPriorities.slice(off, off + CHUNK);
+        await client.$transaction(
+          slice.map((r) => {
+            const p = recruiting.priorityFromId(r.id);
+            return client.recruit.update({
+              where: { id: r.id },
+              data: {
+                prioritiesJson: JSON.stringify(p.priorities),
+                wantsToLeaveHome: p.wantsToLeaveHome,
+              },
+            });
+          }),
+        );
+      }
+    }
 
     type InterestSeed = { recruitId: string; teamId: string; interest: number };
     const toInsert: InterestSeed[] = [];

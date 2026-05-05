@@ -303,8 +303,16 @@ export function MatchHub() {
                 {match.away.teamName}
               </h2>
               <div className="match-hub__boxscore-wrap">
-                <TeamBoxScore name={match.home.teamName} box={match.boxScore.home} />
-                <TeamBoxScore name={match.away.teamName} box={match.boxScore.away} />
+                <TeamBoxScore
+                  name={match.home.teamName}
+                  box={match.boxScore.home}
+                  lineupSlots={match.home.lineupSlots}
+                />
+                <TeamBoxScore
+                  name={match.away.teamName}
+                  box={match.boxScore.away}
+                  lineupSlots={match.away.lineupSlots}
+                />
               </div>
             </div>
           )}
@@ -816,13 +824,15 @@ function Ticker(props: {
 function TeamBoxScore(props: {
   name: string;
   box: sim.TeamBoxScore;
+  /** Sprint 37 (post-launch UAT): on-court player names indexed by slot. */
+  lineupSlots?: readonly string[];
 }) {
   return (
     <table className="match-hub__boxscore">
       <caption>{props.name}</caption>
       <thead>
         <tr>
-          <th scope="col">#</th>
+          <th scope="col">Player</th>
           <th scope="col">K</th>
           <th scope="col">E</th>
           <th scope="col">TA</th>
@@ -837,9 +847,11 @@ function TeamBoxScore(props: {
         </tr>
       </thead>
       <tbody>
-        {props.box.players.map((p) => (
+        {props.box.players.map((p) => {
+          const playerName = props.lineupSlots?.[p.slotIndex];
+          return (
           <tr key={p.slotIndex}>
-            <td>{p.slotIndex + 1}</td>
+            <td>{playerName ?? `Slot ${p.slotIndex + 1}`}</td>
             <td>{p.kills}</td>
             <td>{p.errors}</td>
             <td>{p.totalAttacks}</td>
@@ -852,7 +864,8 @@ function TeamBoxScore(props: {
             <td>{p.blockSolos}</td>
             <td>{p.blockAssists}</td>
           </tr>
-        ))}
+          );
+        })}
         <tr className="match-hub__totals">
           <th scope="row">Total</th>
           <td>{props.box.totals.kills}</td>

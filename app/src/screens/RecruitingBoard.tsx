@@ -10,7 +10,7 @@
 // Deferred to v1.2 (per design doc §9.2): Outstanding Offers / Roster tabs,
 // Targets-by-position panel, Recruit Priorities matrix, Visits scheduling.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSaveSlotsStore } from '../store/useSaveSlotsStore';
 import {
   useRecruitingStore,
@@ -96,18 +96,25 @@ function RecruitingBoardInner({ teamId }: { teamId: string }) {
 
   // Sprint 37 (post-launch UAT): auto-open the recruiting cycle if it
   // isn't open yet. The user shouldn't have to press a button — the
-  // cycle should be live the moment they visit the screen. Guarded by
-  // status==='ready' so the open fires once after the initial load
-  // resolves (instead of racing with the load call).
+  // cycle should be live the moment they visit the screen. Use a ref to
+  // ensure we only ATTEMPT the open once per mount; openCycle's IPC
+  // doesn't refresh `phase` directly, so without this guard the effect
+  // would fire on every render after open completes (infinite loop).
+  const openAttempted = useRef(false);
   useEffect(() => {
+    if (openAttempted.current) return;
     if (
       status === 'ready' &&
       phase !== 'RECRUITING' &&
       recruits.length === 0
     ) {
-      void openCycle(openedSlotId, 2026);
+      openAttempted.current = true;
+      void openCycle(openedSlotId, 2026).then(() => {
+        // Reload after open so phase + recruits reflect the new state.
+        void load(openedSlotId, teamId);
+      });
     }
-  }, [status, phase, recruits.length, openCycle, openedSlotId]);
+  }, [status, phase, recruits.length, openCycle, openedSlotId, load, teamId]);
 
   // Filter pipeline: filter → tab → useTableState (for sort).
   const visible = useMemo(() => {

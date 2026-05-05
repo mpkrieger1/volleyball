@@ -27,11 +27,24 @@ export function TrainingFocusPicker({
   onAdvance,
   isAdvancing,
 }: Props) {
+  // Sprint 37 (post-launch UAT): "Advance" was disabled until the user
+  // clicked every dropdown — even though each one already showed a
+  // default value (the AI heuristic's top pick for that role). The
+  // backend already falls back to the default if no explicit pick
+  // exists, so there's no need to force the user through 9 manual
+  // clicks. Treat default picks as filled.
   const allFilled = useMemo(
     () =>
       coaches.length === 3 &&
       coaches.every((c) =>
-        [0, 1, 2].every((i) => c.currentPicks[i] !== null && c.currentPicks[i] !== undefined),
+        [0, 1, 2].every((i) => {
+          const picked = c.currentPicks[i];
+          const fallback = c.defaultPicks[i];
+          return (
+            (picked !== null && picked !== undefined) ||
+            (fallback !== null && fallback !== undefined)
+          );
+        }),
       ),
     [coaches],
   );

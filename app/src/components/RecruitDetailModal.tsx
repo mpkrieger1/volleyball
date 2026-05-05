@@ -171,6 +171,7 @@ export function RecruitDetailModal({
                   <PrioritiesReadout
                     priorities={detail.priorities ?? NEUTRAL_PRIORITIES}
                     wantsToLeaveHome={detail.wantsToLeaveHome ?? false}
+                    {...(detail.teamPriorityLevels && { teamLevels: detail.teamPriorityLevels })}
                   />
                   {(detail.pitchReasons?.length ?? 0) > 0 && (
                     <div
