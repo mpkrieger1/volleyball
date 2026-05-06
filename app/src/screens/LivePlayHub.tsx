@@ -237,11 +237,12 @@ export function LivePlayHub() {
             {' '}{homeName} <strong>{cs.home}</strong> — <strong>{cs.away}</strong> {awayName}
           </div>
           <p>Server: <strong>{state.server === 'home' ? homeName : awayName}</strong></p>
-          <div>
-            <h3>Momentum</h3>
-            <p>{homeName}: {state.liveMomentum.home} (tier {sim.tierFor(state.liveMomentum.home)})</p>
-            <p>{awayName}: {state.liveMomentum.away} (tier {sim.tierFor(state.liveMomentum.away)})</p>
-          </div>
+          <MomentumMeter
+            homeName={homeName ?? 'Home'}
+            awayName={awayName ?? 'Away'}
+            homeMomentum={state.liveMomentum.home}
+            awayMomentum={state.liveMomentum.away}
+          />
           {isFinished && (
             <p className="live-play-hub__final" role="status">
               Final: {state.winner === 'home' ? homeName : awayName} wins {state.setsWon.home}–{state.setsWon.away}
@@ -270,7 +271,7 @@ export function LivePlayHub() {
           <table className="live-play-hub__stats">
             <thead>
               <tr>
-                <th>Slot</th>
+                <th>Player</th>
                 <th>K</th>
                 <th>E</th>
                 <th>TA</th>
@@ -279,16 +280,22 @@ export function LivePlayHub() {
               </tr>
             </thead>
             <tbody>
-              {homeBox.map((row) => (
-                <tr key={row.slotIndex}>
-                  <td>{row.slotIndex + 1}</td>
-                  <td>{row.kills}</td>
-                  <td>{row.errors}</td>
-                  <td>{row.totalAttacks}</td>
-                  <td>{(row.hittingPctMilli / 1000).toFixed(3)}</td>
-                  <td>{row.digs}</td>
-                </tr>
-              ))}
+              {homeBox.map((row) => {
+                // Sprint 37 (post-launch UAT): show on-court player names
+                // pulled from `lineupNamesBySlot` (Sprint 37 schema add)
+                // instead of slot indices.
+                const name = state.home.lineupNamesBySlot[row.slotIndex];
+                return (
+                  <tr key={row.slotIndex}>
+                    <td>{name && name !== '' ? name : `Slot ${row.slotIndex + 1}`}</td>
+                    <td>{row.kills}</td>
+                    <td>{row.errors}</td>
+                    <td>{row.totalAttacks}</td>
+                    <td>{(row.hittingPctMilli / 1000).toFixed(3)}</td>
+                    <td>{row.digs}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </section>
@@ -663,6 +670,83 @@ function LivePlayIdleScreen() {
           Go to Match Hub for replays
         </button>
       </p>
+    </section>
+  );
+}
+
+// Sprint 37 (post-launch UAT): visual momentum meter. Shows where
+// momentum sits between the two teams and the active multiplicative
+// skill bonus per tier (per `liveSkillMultiplier` in shared/sim/live).
+// Tier 0 → 1.000×, tier 1 → 1.025×, tier 2 → 1.051×, tier 3 → 1.077×.
+function MomentumMeter(props: {
+  homeName: string;
+  awayName: string;
+  homeMomentum: number;
+  awayMomentum: number;
+}) {
+  const homeTier = sim.tierFor(props.homeMomentum);
+  const awayTier = sim.tierFor(props.awayMomentum);
+  // Net "lean": positive = home advantage, negative = away.
+  // Range = [-3, +3] (tier-based).
+  const lean = homeTier - awayTier;
+  // Scale lean to [0, 100] for the bar position (50 = neutral).
+  const pct = 50 + (lean / 3) * 50;
+  const homeMult = sim.liveSkillMultiplier(props.homeMomentum);
+  const awayMult = sim.liveSkillMultiplier(props.awayMomentum);
+  return (
+    <section
+      className="live-play-hub__momentum"
+      aria-labelledby="momentum-meter-heading"
+      data-testid="momentum-meter"
+    >
+      <h3 id="momentum-meter-heading">Momentum</h3>
+      <div
+        className="live-play-hub__momentum-bar"
+        role="meter"
+        aria-valuenow={Math.round(pct)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`${props.homeName} momentum vs ${props.awayName}`}
+      >
+        <span
+          className="live-play-hub__momentum-fill live-play-hub__momentum-fill--home"
+          style={{ width: `${pct}%` }}
+        />
+        <span
+          className="live-play-hub__momentum-fill live-play-hub__momentum-fill--away"
+          style={{ width: `${100 - pct}%`, left: `${pct}%` }}
+        />
+        <span className="live-play-hub__momentum-tick" style={{ left: '50%' }} />
+      </div>
+      <div className="live-play-hub__momentum-rows">
+        <div className="live-play-hub__momentum-row">
+          <strong>{props.homeName}</strong>
+          <span>
+            {props.homeMomentum} pts · tier {homeTier} ·{' '}
+            <span title="Skill multiplier — every action gets this boost">
+              ×{homeMult.toFixed(3)}
+            </span>
+          </span>
+        </div>
+        <div className="live-play-hub__momentum-row">
+          <strong>{props.awayName}</strong>
+          <span>
+            {props.awayMomentum} pts · tier {awayTier} ·{' '}
+            <span title="Skill multiplier — every action gets this boost">
+              ×{awayMult.toFixed(3)}
+            </span>
+          </span>
+        </div>
+      </div>
+      {(homeTier > 0 || awayTier > 0) && (
+        <p className="live-play-hub__momentum-impact">
+          {homeTier > awayTier
+            ? `${props.homeName} is rolling — every skill +${((homeMult - 1) * 100).toFixed(1)}%. Call a timeout to halve it.`
+            : awayTier > homeTier
+              ? `${props.awayName} is rolling — every skill +${((awayMult - 1) * 100).toFixed(1)}%. Call a timeout to halve it.`
+              : 'Even momentum.'}
+        </p>
+      )}
     </section>
   );
 }

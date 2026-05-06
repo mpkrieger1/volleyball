@@ -127,6 +127,11 @@ export function applyUserSubstitution(
   const newSlots = [...teamState.playerIdsBySlot] as TeamLiveState['playerIdsBySlot'];
   newSlots[input.outIdx] = incoming.playerId;
 
+  // Sprint 37 (post-launch UAT): keep lineupNamesBySlot in sync so the
+  // renderer's box score + rotation tracker show the new on-court name.
+  const newNames = [...teamState.lineupNamesBySlot] as TeamLiveState['lineupNamesBySlot'];
+  newNames[input.outIdx] = `${incoming.firstName} ${incoming.lastName}`.trim();
+
   const newBench = [
     ...teamState.bench.slice(0, benchIdx),
     ...teamState.bench.slice(benchIdx + 1),
@@ -137,6 +142,7 @@ export function applyUserSubstitution(
     ...teamState,
     lineup: { ...teamState.lineup, players: newPlayers },
     playerIdsBySlot: newSlots,
+    lineupNamesBySlot: newNames,
     bench: newBench,
   };
 

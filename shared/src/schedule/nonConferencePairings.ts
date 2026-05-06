@@ -25,15 +25,27 @@ export type TeamForScheduling = {
 };
 
 export type NonConferenceConstraints = {
-  /** Sprint 28: each team plays exactly this many non-con games. */
+  /**
+   * Sprint 28: each team plays at LEAST this many non-con games (target).
+   * Sprint 37 (post-launch UAT): split into target + max so the scheduler
+   * has flexibility — exact-10 + no-repeats was infeasible for some teams.
+   */
   nonConfGamesPerTeam: number;
+  /**
+   * Sprint 37: hard upper bound on non-con games per team. Lets teams who
+   * are "easy to schedule" absorb a few extras while teams who can't reach
+   * the target stay at the floor.
+   */
+  nonConfGamesMaxPerTeam: number;
   maxCrossRegionTrips: number; // 3
 };
 
 export const NONCONF_GAMES_PER_TEAM = 10;
+export const NONCONF_GAMES_MAX_PER_TEAM = 13;
 
 export const DEFAULT_NONCONF_CONSTRAINTS: NonConferenceConstraints = {
   nonConfGamesPerTeam: NONCONF_GAMES_PER_TEAM,
+  nonConfGamesMaxPerTeam: NONCONF_GAMES_MAX_PER_TEAM,
   maxCrossRegionTrips: 3,
 };
 
@@ -93,9 +105,15 @@ export function generateNonConferencePairings(
   const state = initState(teams, confPairings);
   const pairings: NonConferencePairing[] = [];
 
-  // Quota per team = remaining non-con games to schedule.
-  const quota = (t: TeamState): number =>
+  // Sprint 37: split quota into "needed" (below floor) and "allowed"
+  // (between floor and ceiling). Below-floor teams take priority; teams
+  // already at floor are still eligible if pairing helps another team
+  // reach floor, but won't be sorted first.
+  const quotaToFloor = (t: TeamState): number =>
     Math.max(0, constraints.nonConfGamesPerTeam - t.nonConfCount);
+  const quotaToCeil = (t: TeamState): number =>
+    Math.max(0, constraints.nonConfGamesMaxPerTeam - t.nonConfCount);
+  const quota = quotaToFloor; // sort priority — below-floor teams first
 
   // Deterministic team order: shuffled once per seed.
   const teamIds = teams.map((t) => t.id);
@@ -119,7 +137,11 @@ export function generateNonConferencePairings(
       });
       for (const id of ordered) {
         const me = state.get(id)!;
-        if (quota(me) === 0) continue;
+        // Sprint 37: only force pairings while below the floor. After
+        // floor, allow extra pairings (up to ceiling) only on the relaxed
+        // pass — keeps most teams at exactly 10.
+        if (quotaToCeil(me) === 0) continue;
+        if (quota(me) === 0 && strictness === 0) continue;
         const opp = pickOpponent(me, state, teamIds, constraints, rng, strictness);
         if (!opp) continue;
         const meHome = me.confHome + me.nonConfHome;
@@ -158,7 +180,8 @@ export function generateNonConferencePairings(
         const b = state.get(shorts[j]!)!;
         if (quota(a) === 0 || quota(b) === 0) continue;
         if (a.conferenceId === b.conferenceId) continue;
-        if ((a.paired.get(b.id) ?? 0) >= 3) continue;
+        // Sprint 37: no-repeat opponents in non-conf — pairCap = 1.
+        if ((a.paired.get(b.id) ?? 0) >= 1) continue;
         addPairing(a, b, pairings);
         progress = true;
       }
@@ -212,8 +235,9 @@ export function generateNonConferencePairings(
     if (x.id === t1.id || x.id === t2.id || y.id === t1.id || y.id === t2.id) return false;
     if (x.conferenceId === t1.conferenceId) return false;
     if (y.conferenceId === t2.conferenceId) return false;
-    if ((x.paired.get(t1.id) ?? 0) >= 3) return false;
-    if ((y.paired.get(t2.id) ?? 0) >= 3) return false;
+    // Sprint 37: no-repeat opponents in non-conf — pairCap = 1.
+    if ((x.paired.get(t1.id) ?? 0) >= 1) return false;
+    if ((y.paired.get(t2.id) ?? 0) >= 1) return false;
     return true;
   }
 
@@ -268,16 +292,20 @@ function pickOpponent(
   // Strict pass: same region, different conference, not already paired, travel OK.
   // Relaxed pass (strictness=1): drops the travel cap to fill quotas.
   const candidates: TeamState[] = [];
-  // In the relaxed pass we still cap pair count at 3 (rather than 2) so we
-  // never schedule the same pair more than three times across the season.
-  const pairCap = strictness === 0 ? 2 : 3;
+  // Sprint 37 (post-launch UAT): no-repeat opponents in non-conf — cap
+  // any (me, opponent) pair count at 1 across the entire non-conf
+  // schedule. Was 2/3 with relaxed fallback; new design = strict 1.
+  const pairCap = 1;
   for (const id of allIds) {
     if (id === me.id) continue;
     const o = state.get(id)!;
     if (o.conferenceId === me.conferenceId) continue;
     if ((me.paired.get(o.id) ?? 0) >= pairCap) continue;
-    if (o.nonConfCount >= constraints.nonConfGamesPerTeam) continue;
-    if (me.nonConfCount >= constraints.nonConfGamesPerTeam) continue;
+    // Sprint 37: cap on the CEILING (13), not the floor target (10), so
+    // teams who hit the floor can still absorb one or two more if their
+    // opponent is below the floor.
+    if (o.nonConfCount >= constraints.nonConfGamesMaxPerTeam) continue;
+    if (me.nonConfCount >= constraints.nonConfGamesMaxPerTeam) continue;
     const crossRegion = me.region !== o.region;
     if (crossRegion && strictness === 0) {
       const meWouldBeAway = me.confHome + me.nonConfHome > o.confHome + o.nonConfHome;

@@ -35,17 +35,44 @@ afterAll(async () => {
 });
 
 describe('Sprint 28 schedule invariants', () => {
-  it('every team plays exactly 10 non-conference games', async () => {
+  it('every team plays 10–13 non-conference games (Sprint 37: widened from exact 10)', async () => {
+    // Sprint 37 (post-launch UAT): floor=10, ceiling=13. Most teams land
+    // at 10; a few extras absorb the slack to keep no-repeat-opponents
+    // feasible across the league.
     const teams = await client.team.findMany();
     for (const t of teams) {
-      // Includes early-season tournament-cluster games (still non-con).
       const n = await client.match.count({
         where: {
           isConference: false,
           OR: [{ homeTeamId: t.id }, { awayTeamId: t.id }],
         },
       });
-      expect(n, `${t.abbr}: ${n} non-conf games`).toBe(10);
+      expect(n, `${t.abbr}: ${n} non-conf games`).toBeGreaterThanOrEqual(10);
+      expect(n, `${t.abbr}: ${n} non-conf games`).toBeLessThanOrEqual(13);
+    }
+  }, 120_000);
+
+  it('no opponent appears more than once in any team\'s non-conference schedule (Sprint 37)', async () => {
+    const teams = await client.team.findMany();
+    for (const t of teams) {
+      const matches = await client.match.findMany({
+        where: {
+          isConference: false,
+          OR: [{ homeTeamId: t.id }, { awayTeamId: t.id }],
+        },
+        select: { homeTeamId: true, awayTeamId: true },
+      });
+      const oppCounts = new Map<string, number>();
+      for (const m of matches) {
+        const opp = m.homeTeamId === t.id ? m.awayTeamId : m.homeTeamId;
+        oppCounts.set(opp, (oppCounts.get(opp) ?? 0) + 1);
+      }
+      for (const [opp, c] of oppCounts) {
+        expect(
+          c,
+          `${t.abbr} plays ${opp} ${c} times in non-conf — must be ≤ 1`,
+        ).toBeLessThanOrEqual(1);
+      }
     }
   }, 120_000);
 
@@ -110,7 +137,9 @@ describe('Sprint 28 schedule invariants', () => {
     }
   }, 30_000);
 
-  it('total game count per team = 10 + min(18, (confSize-1)*2) for big confs; less for small', async () => {
+  it('total game count per team = (10–13 non-conf) + (conf games for the league) ', async () => {
+    // Sprint 37 (post-launch UAT): non-conf widened to 10–13 to support
+    // no-repeat-opponent constraint. Total = non-conf-actual + conf.
     const teams = await client.team.findMany();
     const byConf = new Map<string, typeof teams>();
     for (const t of teams) {
@@ -122,10 +151,11 @@ describe('Sprint 28 schedule invariants', () => {
         where: { OR: [{ homeTeamId: t.id }, { awayTeamId: t.id }] },
       });
       const confSize = byConf.get(t.conferenceId)!.length;
-      const expectedMax = 10 + Math.min(18, (confSize - 1) * 2);
+      const confMax = Math.min(18, (confSize - 1) * 2);
+      const expectedMax = 13 + confMax;
       expect(n, `${t.abbr} (confSize=${confSize}): ${n} total`).toBeLessThanOrEqual(expectedMax);
-      // Lower bound: 10 non-con + (confSize-1)*2 (capped at 16 for odd-conf bye asymmetry).
-      const expectedMin = 10 + Math.max(0, Math.min(16, (confSize - 1) * 2));
+      const confMin = Math.max(0, Math.min(16, (confSize - 1) * 2));
+      const expectedMin = 10 + confMin;
       expect(n, `${t.abbr} (confSize=${confSize}): ${n} total ≥ ${expectedMin}`).toBeGreaterThanOrEqual(expectedMin);
     }
   }, 120_000);

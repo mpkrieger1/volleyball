@@ -42,6 +42,7 @@ function toLive(t: TeamMatchState): TeamLiveState {
     libero: t.libero ?? null,
     setterIndex: t.setterIndex,
     playerIdsBySlot: ['', '', '', '', '', ''],
+    lineupNamesBySlot: ['', '', '', '', '', ''],
     bench: [],
     tacticalHint: 'balanced', // Sprint 31: default; sim-only path doesn't use positional rules anyway
     ...(t.system && { system: t.system }),

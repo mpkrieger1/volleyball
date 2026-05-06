@@ -303,18 +303,41 @@ export async function startLiveMatch(input: StartInput): Promise<{
       ]);
       const needsHomeHydrate = parsed.home.playerIdsBySlot.every((id) => id === '');
       const needsAwayHydrate = parsed.away.playerIdsBySlot.every((id) => id === '');
-      if (needsHomeHydrate || needsAwayHydrate) {
+      // Sprint 37: also hydrate lineupNamesBySlot if missing/empty.
+      const hydrateNamesFor = (
+        slotIds: readonly string[],
+        bios: Map<string, sim.BenchPlayer>,
+      ): TeamLiveState['lineupNamesBySlot'] =>
+        slotIds.map((id) => {
+          const b = bios.get(id);
+          return b ? `${b.firstName} ${b.lastName}`.trim() : '';
+        }) as TeamLiveState['lineupNamesBySlot'];
+      const needsHomeNames = parsed.home.lineupNamesBySlot.every((n) => n === '');
+      const needsAwayNames = parsed.away.lineupNamesBySlot.every((n) => n === '');
+      if (needsHomeHydrate || needsAwayHydrate || needsHomeNames || needsAwayNames) {
         parsed = {
           ...parsed,
-          home: needsHomeHydrate ? {
+          home: (needsHomeHydrate || needsHomeNames) ? {
             ...parsed.home,
-            playerIdsBySlot: [...homeStarters] as TeamLiveState['playerIdsBySlot'],
-            bench: homeRoster.bench,
+            playerIdsBySlot: needsHomeHydrate
+              ? ([...homeStarters] as TeamLiveState['playerIdsBySlot'])
+              : parsed.home.playerIdsBySlot,
+            lineupNamesBySlot: hydrateNamesFor(
+              needsHomeHydrate ? homeStarters : parsed.home.playerIdsBySlot,
+              homeRoster.bios,
+            ),
+            bench: needsHomeHydrate ? homeRoster.bench : parsed.home.bench,
           } : parsed.home,
-          away: needsAwayHydrate ? {
+          away: (needsAwayHydrate || needsAwayNames) ? {
             ...parsed.away,
-            playerIdsBySlot: [...awayStarters] as TeamLiveState['playerIdsBySlot'],
-            bench: awayRoster.bench,
+            playerIdsBySlot: needsAwayHydrate
+              ? ([...awayStarters] as TeamLiveState['playerIdsBySlot'])
+              : parsed.away.playerIdsBySlot,
+            lineupNamesBySlot: hydrateNamesFor(
+              needsAwayHydrate ? awayStarters : parsed.away.playerIdsBySlot,
+              awayRoster.bios,
+            ),
+            bench: needsAwayHydrate ? awayRoster.bench : parsed.away.bench,
           } : parsed.away,
         };
       }
@@ -355,6 +378,18 @@ export async function startLiveMatch(input: StartInput): Promise<{
       loadBenchForTeam(client, match.awayTeamId, awayStarters),
     ]);
 
+    // Sprint 37 (post-launch UAT): hydrate lineupNamesBySlot from bios so
+    // the renderer's stats table + rotation tracker can show player names
+    // for on-court starters (who are NOT in the bench array).
+    const namesBySlot = (
+      starters: readonly string[],
+      bios: Map<string, sim.BenchPlayer>,
+    ): TeamLiveState['lineupNamesBySlot'] =>
+      starters.map((id) => {
+        const b = bios.get(id);
+        return b ? `${b.firstName} ${b.lastName}`.trim() : '';
+      }) as TeamLiveState['lineupNamesBySlot'];
+
     const homeLive: TeamLiveState = {
       lineup: homeLineup,
       rotation: sim.initialRotation(),
@@ -362,6 +397,7 @@ export async function startLiveMatch(input: StartInput): Promise<{
       setterIndex: 0,
       system: sim.defaultSystem51(),
       playerIdsBySlot: [...homeStarters] as TeamLiveState['playerIdsBySlot'],
+      lineupNamesBySlot: namesBySlot(homeStarters, homeRoster.bios),
       bench: homeRoster.bench,
       tacticalHint: 'balanced', // Sprint 31: editor can override
     };
@@ -372,6 +408,7 @@ export async function startLiveMatch(input: StartInput): Promise<{
       setterIndex: 0,
       system: sim.defaultSystem51(),
       playerIdsBySlot: [...awayStarters] as TeamLiveState['playerIdsBySlot'],
+      lineupNamesBySlot: namesBySlot(awayStarters, awayRoster.bios),
       bench: awayRoster.bench,
       tacticalHint: 'balanced',
     };
@@ -642,6 +679,24 @@ export function applySetRotation(
     newSystem = { system: '6-2', setterAIndex: aIdx, setterBIndex: bIdx };
   }
 
+  // Sprint 37: build name lookup from existing bios (bench has off-court
+  // bios; on-court starters have their bios from the original load).
+  const allBios = new Map<string, sim.BenchPlayer>();
+  for (const b of [...benchNow, ...newBench]) allBios.set(b.playerId, b);
+  // Include current on-court (their bios may not be in either bench yet
+  // if they were original starters).
+  for (let i = 0; i < onCourtNow.length; i++) {
+    const id = onCourtNow[i]!;
+    if (!allBios.has(id)) {
+      const prior = benchNow.find((b) => b.playerId === id);
+      if (prior) allBios.set(id, prior);
+    }
+  }
+  const newLineupNames = newPlayerIds.map((id) => {
+    const b = allBios.get(id);
+    return b ? `${b.firstName} ${b.lastName}`.trim() : '';
+  }) as TeamLiveState['lineupNamesBySlot'];
+
   const newTeamState: TeamLiveState = {
     ...teamState,
     lineup: { ...teamState.lineup, players: newPlayers as TeamLiveState['lineup']['players'] },
@@ -650,6 +705,7 @@ export function applySetRotation(
     system: newSystem,
     setterIndex: input.system === '5-1' ? SLOTS.indexOf(input.setterSlot!) : 0,
     playerIdsBySlot: newPlayerIds,
+    lineupNamesBySlot: newLineupNames,
     bench: newBench,
     tacticalHint: input.hint,
   };

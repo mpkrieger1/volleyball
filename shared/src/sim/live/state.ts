@@ -78,6 +78,16 @@ export const TeamLiveStateSchema = z.object({
     z.string(), z.string(), z.string(), z.string(), z.string(), z.string(),
   ]).default(['', '', '', '', '', '']),
   /**
+   * Sprint 37 (post-launch UAT): on-court player display names indexed
+   * by slot. Renderer uses this for the live box-score table + rotation
+   * tracker without needing a separate bios lookup. Maintained alongside
+   * `playerIdsBySlot` on subs. Defaults to empty for backward compat
+   * with Sprint 29-30 paused saves; service hydrates on resume.
+   */
+  lineupNamesBySlot: z.tuple([
+    z.string(), z.string(), z.string(), z.string(), z.string(), z.string(),
+  ]).default(['', '', '', '', '', '']),
+  /**
    * Sprint 30 Task 30.3: bench (off-court roster). Subs swap a player
    * between bench and lineup atomically. Defaults to `[]` for Sprint
    * 29 paused state; hydrated by service.
